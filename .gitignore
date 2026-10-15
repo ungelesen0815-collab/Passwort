@@ -1,0 +1,10 @@
+vendor/
+.env
+cookies.txt
+php_server.log
+node_modules/
+*.png
+*.webm
+.phpunit.cache/
+uploads/
+cache/
