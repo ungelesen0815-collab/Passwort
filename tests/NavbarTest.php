@@ -21,6 +21,12 @@ class NavbarTest extends TestCase
         );
 
         $this->assertStringContainsString(
+            'href="password_generator.php">Passwort-Generator</a>',
+            $navbarContent,
+            'navbar.php should contain link to password_generator.php'
+        );
+
+        $this->assertStringContainsString(
             'href="profile.php">Profile</a>',
             $navbarContent,
             'navbar.php should contain link to profile.php'

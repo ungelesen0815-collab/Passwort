@@ -21,16 +21,25 @@ require_once 'header.php';
             <p class="lead">You are successfully logged in as a <strong><?= htmlspecialchars($role) ?></strong>.</p>
 
             <div class="row mt-4">
-                <div class="col-md-4 mb-3">
+                <div class="col-md-6 col-lg-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h5 class="card-title">🔐 Passwörter & Zertifikate Tresor</h5>
-                            <p class="card-text">Speichern Sie Passwörter, Keyfiles und Zertifikate Ende-zu-Ende verschlüsselt.</p>
+                            <h5 class="card-title">🔐 Tresor</h5>
+                            <p class="card-text">Speichern Sie Passwörter &amp; Zertifikate Ende-zu-Ende verschlüsselt.</p>
                             <a href="vault.php" class="btn btn-primary">Zum Tresor &rarr;</a>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-6 col-lg-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">🔑 Passwort-Generator</h5>
+                            <p class="card-text">Generieren Sie sichere, zufällige Passwörter mit anpassbaren Optionen.</p>
+                            <a href="password_generator.php" class="btn btn-primary">Zum Generator &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
                             <h5 class="card-title">👤 Profil</h5>
@@ -39,10 +48,10 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-6 col-lg-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
-                            <h5 class="card-title">🛡️ Zwei-Faktor-Authentifizierung</h5>
+                            <h5 class="card-title">🛡️ MFA</h5>
                             <p class="card-text">Erhöhen Sie die Sicherheit Ihres Kontos mit 2FA/MFA.</p>
                             <a href="mfa_setup.php" class="btn btn-secondary">MFA Einrichten &rarr;</a>
                         </div>
