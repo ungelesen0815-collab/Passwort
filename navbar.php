@@ -16,6 +16,9 @@ $role = $_SESSION['role'] ?? ($user['role'] ?? '');
                     <a class="nav-link" href="vault.php">Tresor / Vault</a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" href="password_generator.php">Passwort-Generator</a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="profile.php">Profile</a>
                 </li>
                 <li class="nav-item">
