@@ -23,7 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $token = $_POST['csrf_token'] ?? '';
 
-    if (!validate_csrf_token($token)) {
+    $csrfError = validate_csrf_token($token);
+    if ($csrfError !== null) {
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
             header('Content-Type: application/json');
             http_response_code(400);
