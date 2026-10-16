@@ -13,6 +13,9 @@ $role = $_SESSION['role'] ?? ($user['role'] ?? '');
                 </li>
                 <?php endif; ?>
                 <li class="nav-item">
+                    <a class="nav-link" href="vault.php">Tresor / Vault</a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="profile.php">Profile</a>
                 </li>
                 <li class="nav-item">

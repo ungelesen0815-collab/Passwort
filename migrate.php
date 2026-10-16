@@ -53,7 +53,20 @@ try {
         error_log("Database error migrating login_attempts schema: " . $e->getMessage());
     }
 
-    echo "Migration completed successfully: 'users' and 'login_attempts' tables are ready.\n";
+    $pdo->exec("CREATE TABLE IF NOT EXISTS vault_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        item_type ENUM('password', 'keyfile', 'certificate') NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        encrypted_data LONGTEXT NOT NULL,
+        iv VARCHAR(255) NOT NULL,
+        salt VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    echo "Migration completed successfully: 'users', 'login_attempts', and 'vault_items' tables are ready.\n";
 } catch (\PDOException $e) {
     echo "Migration failed: " . $e->getMessage() . "\n";
     exit(1);
