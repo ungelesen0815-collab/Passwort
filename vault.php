@@ -298,7 +298,7 @@ require_once 'navbar.php';
     </div>
 </div>
 
-<script type="application/json" id="vault-data"><?= json_encode(['csrfToken' => $_SESSION['csrf_token'] ?? '', 'items' => $vaultItems], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<div id="vault-data" data-json="<?= htmlspecialchars(json_encode(['csrfToken' => $_SESSION['csrf_token'] ?? '', 'items' => $vaultItems]), ENT_QUOTES, 'UTF-8') ?>" class="d-none"></div>
 <script src="vault.js"></script>
 
 <?php require_once 'footer.php'; ?>

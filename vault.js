@@ -135,10 +135,10 @@ const VaultCrypto = {
     }
 };
 
-let csrfToken = "";
-let rawVaultItems = [];
-let derivedMasterKey = null;
-let activeSalt = null;
+var csrfToken = "";
+var rawVaultItems = [];
+var derivedMasterKey = null;
+var activeSalt = null;
 
 function toggleFormFields() {
     const type = document.getElementById('item_type').value;
@@ -429,7 +429,8 @@ function initVaultUI() {
     const dataEl = document.getElementById('vault-data');
     if (dataEl) {
         try {
-            const data = JSON.parse(dataEl.textContent);
+            const rawJson = dataEl.dataset && dataEl.dataset.json ? dataEl.dataset.json : (dataEl.getAttribute('data-json') || dataEl.textContent);
+            const data = JSON.parse(rawJson);
             csrfToken = data.csrfToken || "";
             rawVaultItems = data.items || [];
         } catch (e) {
@@ -494,5 +495,10 @@ if (typeof document !== 'undefined') {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = VaultCrypto;
+    module.exports = {
+        VaultCrypto,
+        initVaultUI,
+        getCsrfToken: () => csrfToken,
+        getRawVaultItems: () => rawVaultItems
+    };
 }
