@@ -69,3 +69,7 @@ body.dark-mode .text-dark {
     margin-bottom: 20px;
     border: 2px solid #ddd;
 }
+
+.length-input-width {
+    width: 90px;
+}

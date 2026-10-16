@@ -409,7 +409,7 @@ function downloadFile(filename, content) {
     const element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
     element.setAttribute('download', filename);
-    element.style.display = 'none';
+    element.hidden = true;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
