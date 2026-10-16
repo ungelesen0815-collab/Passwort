@@ -15,3 +15,16 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     attempts INT NOT NULL DEFAULT 0,
     last_attempt INT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS vault_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    item_type ENUM('password', 'keyfile', 'certificate') NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    encrypted_data LONGTEXT NOT NULL,
+    iv VARCHAR(255) NOT NULL,
+    salt VARCHAR(255) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
