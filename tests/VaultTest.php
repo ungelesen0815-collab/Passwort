@@ -89,4 +89,27 @@ class VaultTest extends TestCase
         $this->assertTrue(in_array('certificate', $allowedTypes, true));
         $this->assertFalse(in_array('malicious_type', $allowedTypes, true));
     }
+
+    public function testValidateCsrfTokenInVault(): void
+    {
+        require_once __DIR__ . '/../csrf.php';
+
+        if (session_status() === PHP_SESSION_NONE) {
+            $_SESSION = [];
+        }
+        $_SESSION['csrf_token'] = 'valid_secret_csrf_token';
+
+        // Valid token returns null (no error)
+        $validResult = validate_csrf_token('valid_secret_csrf_token');
+        $this->assertNull($validResult);
+
+        // Invalid token returns error string
+        $invalidResult = validate_csrf_token('invalid_secret_csrf_token');
+        $this->assertIsString($invalidResult);
+        $this->assertStringContainsString('Invalid CSRF token', $invalidResult);
+
+        // Null token returns error string
+        $nullResult = validate_csrf_token(null);
+        $this->assertIsString($nullResult);
+    }
 }
