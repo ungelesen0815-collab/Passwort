@@ -69,7 +69,7 @@ require_once 'header.php';
                             <label for="lengthInput" class="form-label fw-bold">Passwortlänge: <span id="lengthVal"><?= htmlspecialchars((string)$length) ?></span> Zeichen</label>
                             <div class="d-flex align-items-center gap-3">
                                 <input type="range" class="form-range flex-grow-1" id="lengthRange" name="length_range" min="<?= PasswordGenerator::MIN_LENGTH ?>" max="<?= PasswordGenerator::MAX_LENGTH ?>" value="<?= htmlspecialchars((string)$length) ?>">
-                                <input type="number" class="form-control" id="lengthInput" name="length" min="<?= PasswordGenerator::MIN_LENGTH ?>" max="<?= PasswordGenerator::MAX_LENGTH ?>" value="<?= htmlspecialchars((string)$length) ?>" style="width: 90px;">
+                                <input type="number" class="form-control length-input-width" id="lengthInput" name="length" min="<?= PasswordGenerator::MIN_LENGTH ?>" max="<?= PasswordGenerator::MAX_LENGTH ?>" value="<?= htmlspecialchars((string)$length) ?>">
                             </div>
                         </div>
 
