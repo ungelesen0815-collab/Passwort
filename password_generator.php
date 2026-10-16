@@ -57,8 +57,8 @@ require_once 'header.php';
                             <label class="form-label fw-bold">Generiertes Passwort:</label>
                             <div class="input-group">
                                 <input type="text" id="passwordResult" class="form-control font-monospace fs-5" value="<?= htmlspecialchars($generatedPassword) ?>" readonly>
-                                <button class="btn btn-outline-secondary" type="button" id="copyBtn" onclick="copyPassword()">📋 Kopieren</button>
-                                <button class="btn btn-outline-primary" type="button" onclick="document.getElementById('generatorForm').submit()">🔄 Neu generieren</button>
+                                <button class="btn btn-outline-secondary" type="button" id="copyBtn">📋 Kopieren</button>
+                                <button class="btn btn-outline-primary" type="button" id="regenerateBtn">🔄 Neu generieren</button>
                             </div>
                             <small id="copyFeedback" class="form-text text-success d-none">In die Zwischenablage kopiert!</small>
                         </div>
@@ -68,8 +68,8 @@ require_once 'header.php';
                         <div class="mb-3">
                             <label for="lengthInput" class="form-label fw-bold">Passwortlänge: <span id="lengthVal"><?= htmlspecialchars((string)$length) ?></span> Zeichen</label>
                             <div class="d-flex align-items-center gap-3">
-                                <input type="range" class="form-range flex-grow-1" id="lengthRange" name="length_range" min="<?= PasswordGenerator::MIN_LENGTH ?>" max="<?= PasswordGenerator::MAX_LENGTH ?>" value="<?= htmlspecialchars((string)$length) ?>" oninput="syncLength(this.value)">
-                                <input type="number" class="form-control" id="lengthInput" name="length" min="<?= PasswordGenerator::MIN_LENGTH ?>" max="<?= PasswordGenerator::MAX_LENGTH ?>" value="<?= htmlspecialchars((string)$length) ?>" style="width: 90px;" oninput="syncLength(this.value)">
+                                <input type="range" class="form-range flex-grow-1" id="lengthRange" name="length_range" min="<?= PasswordGenerator::MIN_LENGTH ?>" max="<?= PasswordGenerator::MAX_LENGTH ?>" value="<?= htmlspecialchars((string)$length) ?>">
+                                <input type="number" class="form-control" id="lengthInput" name="length" min="<?= PasswordGenerator::MIN_LENGTH ?>" max="<?= PasswordGenerator::MAX_LENGTH ?>" value="<?= htmlspecialchars((string)$length) ?>" style="width: 90px;">
                             </div>
                         </div>
 
@@ -122,35 +122,6 @@ require_once 'header.php';
     </div>
 </div>
 
-<script>
-function syncLength(val) {
-    document.getElementById('lengthVal').textContent = val;
-    document.getElementById('lengthRange').value = val;
-    document.getElementById('lengthInput').value = val;
-}
-
-function copyPassword() {
-    const input = document.getElementById('passwordResult');
-    if (!input) return;
-
-    input.select();
-    input.setSelectionRange(0, 99999);
-
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(input.value).then(showFeedback);
-    } else {
-        document.execCommand('copy');
-        showFeedback();
-    }
-}
-
-function showFeedback() {
-    const feedback = document.getElementById('copyFeedback');
-    if (feedback) {
-        feedback.classList.remove('d-none');
-        setTimeout(() => feedback.classList.add('d-none'), 2500);
-    }
-}
-</script>
+<script src="password_generator.js"></script>
 
 <?php require_once 'footer.php'; ?>
