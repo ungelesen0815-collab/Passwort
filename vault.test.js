@@ -1,8 +1,8 @@
 const assert = require('assert');
 
 let mockVaultData = {
-    dataset: { json: '{"csrfToken":"test_token_123","items":[{"id":1,"title":"Test Item"}]}' },
-    getAttribute: (attr) => (attr === 'data-json' ? '{"csrfToken":"test_token_123","items":[{"id":1,"title":"Test Item"}]}' : null),
+    dataset: { json: '{"csrfToken":"test_token_123","vaultId":42,"items":[{"id":1,"title":"Test Item"}]}' },
+    getAttribute: (attr) => (attr === 'data-json' ? '{"csrfToken":"test_token_123","vaultId":42,"items":[{"id":1,"title":"Test Item"}]}' : null),
     textContent: ''
 };
 
@@ -16,13 +16,14 @@ global.document = {
     addEventListener: () => {}
 };
 
-const { VaultCrypto, initVaultUI, getCsrfToken, getRawVaultItems } = require('./vault.js');
+const { VaultCrypto, initVaultUI, getCsrfToken, getRawVaultItems, getVaultId } = require('./vault.js');
 
 // Test initVaultUI reading data-json
 initVaultUI();
 assert.strictEqual(getCsrfToken(), 'test_token_123');
 assert.strictEqual(getRawVaultItems().length, 1);
 assert.strictEqual(getRawVaultItems()[0].title, 'Test Item');
+assert.strictEqual(getVaultId(), 42);
 
 // Test fallback reading data-json when dataset is undefined
 mockVaultData = {

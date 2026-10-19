@@ -53,6 +53,14 @@ try {
         error_log("Database error migrating login_attempts schema: " . $e->getMessage());
     }
 
+    $pdo->exec("CREATE TABLE IF NOT EXISTS vaults (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS vault_items (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
@@ -66,7 +74,62 @@ try {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-    echo "Migration completed successfully: 'users', 'login_attempts', and 'vault_items' tables are ready.\n";
+    // Check if vault_id exists in vault_items
+    $stmt = $pdo->query("SHOW COLUMNS FROM vault_items LIKE 'vault_id'");
+    $hasVaultId = $stmt->fetch();
+
+    if (!$hasVaultId) {
+        // Create default vault for all users who have items or just existing users
+        $usersStmt = $pdo->query("SELECT id FROM users");
+        $users = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($users as $user) {
+            $userId = $user['id'];
+            // Insert a default vault
+            $insertVaultStmt = $pdo->prepare("INSERT INTO vaults (user_id, name) VALUES (?, 'Default Vault')");
+            $insertVaultStmt->execute([$userId]);
+            $vaultId = $pdo->lastInsertId();
+
+            // Add vault_id to this user's existing vault_items
+            // Temporarily we can't do this easily before column exists, so let's add column first allowing null, then update, then modify to not null
+        }
+
+        $pdo->exec("ALTER TABLE vault_items ADD COLUMN vault_id INT NULL");
+
+        // Update vault_items with newly created default vaults
+        $vaultsStmt = $pdo->query("SELECT id, user_id FROM vaults WHERE name = 'Default Vault'");
+        $vaults = $vaultsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($vaults as $vault) {
+            $updateStmt = $pdo->prepare("UPDATE vault_items SET vault_id = ? WHERE user_id = ? AND vault_id IS NULL");
+            $updateStmt->execute([$vault['id'], $vault['user_id']]);
+        }
+
+        // Any orphaned items?
+        // Let's create a generic vault for them if they exist but their user somehow doesn't have a default vault
+        // First find items with null vault_id
+        $orphanedStmt = $pdo->query("SELECT DISTINCT user_id FROM vault_items WHERE vault_id IS NULL");
+        $orphanedUsers = $orphanedStmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($orphanedUsers as $orphan) {
+            $userId = $orphan['user_id'];
+            $insertVaultStmt = $pdo->prepare("INSERT INTO vaults (user_id, name) VALUES (?, 'Default Vault')");
+            $insertVaultStmt->execute([$userId]);
+            $vaultId = $pdo->lastInsertId();
+
+            $updateStmt = $pdo->prepare("UPDATE vault_items SET vault_id = ? WHERE user_id = ? AND vault_id IS NULL");
+            $updateStmt->execute([$vaultId, $userId]);
+        }
+
+        // Now set vault_id to NOT NULL
+        // First delete any that STILL have null just to be safe (should be none)
+        $pdo->exec("DELETE FROM vault_items WHERE vault_id IS NULL");
+        $pdo->exec("ALTER TABLE vault_items MODIFY COLUMN vault_id INT NOT NULL");
+
+        // Add foreign key constraint
+        $pdo->exec("ALTER TABLE vault_items ADD CONSTRAINT fk_vault_id FOREIGN KEY (vault_id) REFERENCES vaults(id) ON DELETE CASCADE");
+    }
+
+    echo "Migration completed successfully: 'users', 'login_attempts', 'vaults', and 'vault_items' tables are ready.\n";
 } catch (\PDOException $e) {
     echo "Migration failed: " . $e->getMessage() . "\n";
     exit(1);

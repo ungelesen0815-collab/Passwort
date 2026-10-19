@@ -8,15 +8,18 @@ if (!isset($_SESSION['user_id'])) {
         header('Content-Type: application/json');
         http_response_code(401);
         echo json_encode(['error' => 'Unauthorized']);
-        exit;
+        exit();
     }
     header('Location: login.php');
-    exit;
+    exit();
 }
 
 $userId = $_SESSION['user_id'];
 $message = '';
 $error = '';
+$currentVaultId = isset($_GET['id']) ? (int)$_GET['id'] : null;
+$vaultItems = [];
+$userVaults = [];
 
 // Handle POST actions (API / AJAX or Form submission)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -29,58 +32,81 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Content-Type: application/json');
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => 'Ungültiger CSRF-Token.']);
-            exit;
+            exit();
         }
         $error = 'Ungültiger CSRF-Token.';
     } else {
-        if ($action === 'add') {
+        if ($action === 'create_vault') {
+            $vaultName = trim($_POST['vault_name'] ?? '');
+            if (empty($vaultName)) {
+                $error = 'Tresorname darf nicht leer sein.';
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO vaults (user_id, name) VALUES (?, ?)");
+                $stmt->execute([$userId, $vaultName]);
+                $message = 'Tresor erfolgreich erstellt.';
+            }
+        } elseif ($action === 'delete_vault') {
+            $vaultIdToDelete = (int)($_POST['vault_id'] ?? 0);
+            if ($vaultIdToDelete > 0) {
+                $stmt = $pdo->prepare("DELETE FROM vaults WHERE id = ? AND user_id = ?");
+                $stmt->execute([$vaultIdToDelete, $userId]);
+                $message = 'Tresor gelöscht.';
+            }
+        } elseif ($action === 'add') {
             $itemType = $_POST['item_type'] ?? '';
             $title = trim($_POST['title'] ?? '');
             $encryptedData = $_POST['encrypted_data'] ?? '';
             $iv = $_POST['iv'] ?? '';
             $salt = $_POST['salt'] ?? '';
+            $vaultId = (int)($_POST['vault_id'] ?? 0);
 
             $allowedTypes = ['password', 'keyfile', 'certificate'];
 
-            if (!in_array($itemType, $allowedTypes, true) || empty($title) || empty($encryptedData) || empty($iv) || empty($salt)) {
+            // Check if vault belongs to user
+            $stmt = $pdo->prepare("SELECT id FROM vaults WHERE id = ? AND user_id = ?");
+            $stmt->execute([$vaultId, $userId]);
+            $validVault = $stmt->fetch();
+
+            if (!$validVault || !in_array($itemType, $allowedTypes, true) || empty($title) || empty($encryptedData) || empty($iv) || empty($salt)) {
                 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
                     header('Content-Type: application/json');
                     http_response_code(400);
                     echo json_encode(['success' => false, 'error' => 'Fehlende oder ungültige Felder.']);
-                    exit;
+                    exit();
                 }
                 $error = 'Fehlende oder ungültige Felder.';
             } else {
-                $stmt = $pdo->prepare("INSERT INTO vault_items (user_id, item_type, title, encrypted_data, iv, salt) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$userId, $itemType, $title, $encryptedData, $iv, $salt]);
+                $stmt = $pdo->prepare("INSERT INTO vault_items (user_id, vault_id, item_type, title, encrypted_data, iv, salt) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$userId, $vaultId, $itemType, $title, $encryptedData, $iv, $salt]);
                 $newId = $pdo->lastInsertId();
 
                 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
                     header('Content-Type: application/json');
                     echo json_encode(['success' => true, 'id' => $newId, 'message' => 'Eintrag erfolgreich gespeichert.']);
-                    exit;
+                    exit();
                 }
                 $message = 'Eintrag erfolgreich gespeichert.';
             }
         } elseif ($action === 'delete') {
             $itemId = (int)($_POST['item_id'] ?? 0);
+            $vaultId = (int)($_POST['vault_id'] ?? 0);
 
-            if ($itemId <= 0) {
+            if ($itemId <= 0 || $vaultId <= 0) {
                 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
                     header('Content-Type: application/json');
                     http_response_code(400);
                     echo json_encode(['success' => false, 'error' => 'Ungültige Bezeichner-ID.']);
-                    exit;
+                    exit();
                 }
                 $error = 'Ungültige Bezeichner-ID.';
             } else {
-                $stmt = $pdo->prepare("DELETE FROM vault_items WHERE id = ? AND user_id = ?");
-                $stmt->execute([$itemId, $userId]);
+                $stmt = $pdo->prepare("DELETE FROM vault_items WHERE id = ? AND user_id = ? AND vault_id = ?");
+                $stmt->execute([$itemId, $userId, $vaultId]);
 
                 if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
                     header('Content-Type: application/json');
                     echo json_encode(['success' => true, 'message' => 'Eintrag gelöscht.']);
-                    exit;
+                    exit();
                 }
                 $message = 'Eintrag gelöscht.';
             }
@@ -88,32 +114,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch vault items for current user
-$stmt = $pdo->prepare("SELECT id, item_type, title, encrypted_data, iv, salt, created_at FROM vault_items WHERE user_id = ? ORDER BY created_at DESC");
-$stmt->execute([$userId]);
-$vaultItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+if ($currentVaultId) {
+    // Verify vault ownership
+    $stmt = $pdo->prepare("SELECT name FROM vaults WHERE id = ? AND user_id = ?");
+    $stmt->execute([$currentVaultId, $userId]);
+    $vault = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$pageTitle = 'Tresor (Vault)';
+    if (!$vault) {
+        header('Location: vault.php');
+        exit();
+    }
+
+    $pageTitle = 'Tresor: ' . htmlspecialchars($vault['name']);
+    // Fetch vault items for current user and specific vault
+    $stmt = $pdo->prepare("SELECT id, item_type, title, encrypted_data, iv, salt, created_at FROM vault_items WHERE user_id = ? AND vault_id = ? ORDER BY created_at DESC");
+    $stmt->execute([$userId, $currentVaultId]);
+    $vaultItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $pageTitle = 'Meine Tresore';
+    $stmt = $pdo->prepare("SELECT * FROM vaults WHERE user_id = ? ORDER BY created_at DESC");
+    $stmt->execute([$userId]);
+    $userVaults = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 require_once 'header.php';
 require_once 'navbar.php';
 ?>
 
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2><i class="bi bi-shield-lock"></i> Verschlüsselter Tresor</h2>
-        <button id="lock-vault-btn" class="btn btn-outline-warning d-none">
-            🔒 Tresor sperren
-        </button>
-    </div>
+    <?php if (!$currentVaultId): ?>
+        <h2><i class="bi bi-safe"></i> Meine Tresore</h2>
 
-    <?php if (!empty($error)): ?>
-        <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
-    <?php endif; ?>
-    <?php if (!empty($message)): ?>
-        <div class="alert alert-success"><?= htmlspecialchars($message) ?></div>
-    <?php endif; ?>
+        <?php if (!empty($error)): ?>
+            <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+        <?php if (!empty($message)): ?>
+            <div class="alert alert-success"><?= htmlspecialchars($message) ?></div>
+        <?php endif; ?>
 
-    <!-- Master Password Setup / Unlock Banner -->
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span>Tresore</span>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="vault.php" class="mb-4 d-flex align-items-center">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                    <input type="hidden" name="action" value="create_vault">
+                    <input type="text" name="vault_name" class="form-control me-2" placeholder="Neuer Tresor Name" required>
+                    <button type="submit" class="btn btn-success text-nowrap">+ Tresor Erstellen</button>
+                </form>
+
+                <div class="list-group">
+                    <?php foreach ($userVaults as $v): ?>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <a href="vault.php?id=<?= $v['id'] ?>" class="text-decoration-none h5 mb-0 flex-grow-1">
+                                <i class="bi bi-shield-lock me-2"></i><?= htmlspecialchars($v['name']) ?>
+                            </a>
+                            <form method="POST" action="vault.php" class="ms-3" onsubmit="return confirm('Tresor wirklich löschen? Alle Einträge darin gehen verloren!');">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                                <input type="hidden" name="action" value="delete_vault">
+                                <input type="hidden" name="vault_id" value="<?= $v['id'] ?>">
+                                <button type="submit" class="btn btn-danger btn-sm">Löschen</button>
+                            </form>
+                        </div>
+                    <?php endforeach; ?>
+                    <?php if (empty($userVaults)): ?>
+                        <p class="text-muted">Sie haben noch keine Tresore.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    <?php else: ?>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2><i class="bi bi-shield-lock"></i> <?= htmlspecialchars($vault['name']) ?></h2>
+            <div>
+                <a href="vault.php" class="btn btn-outline-secondary me-2">Zurück</a>
+                <button id="lock-vault-btn" class="btn btn-outline-warning d-none">
+                    🔒 Tresor sperren
+                </button>
+            </div>
+        </div>
+
+        <?php if (!empty($error)): ?>
+            <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+        <?php if (!empty($message)): ?>
+            <div class="alert alert-success"><?= htmlspecialchars($message) ?></div>
+        <?php endif; ?>
+
+        <!-- Master Password Setup / Unlock Banner -->
     <div id="master-password-card" class="card mb-4 border-primary">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0">Master-Passwort eingeben</h5>
@@ -299,7 +388,8 @@ require_once 'navbar.php';
     </div>
 </div>
 
-<div id="vault-data" data-json="<?= htmlspecialchars(json_encode(['csrfToken' => $_SESSION['csrf_token'] ?? '', 'items' => $vaultItems]), ENT_QUOTES, 'UTF-8') ?>" class="d-none"></div>
+<div id="vault-data" data-json="<?= htmlspecialchars(json_encode(['csrfToken' => $_SESSION['csrf_token'] ?? '', 'vaultId' => $currentVaultId, 'items' => $vaultItems]), ENT_QUOTES, 'UTF-8') ?>" class="d-none"></div>
 <script src="vault.js"></script>
+<?php endif; ?>
 
 <?php require_once 'footer.php'; ?>

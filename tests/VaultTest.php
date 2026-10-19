@@ -11,35 +11,48 @@ class VaultTest extends TestCase
         $this->pdo = new PDO('sqlite::memory:');
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $this->pdo->exec("CREATE TABLE users (
+                $this->pdo->exec("CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             role TEXT NOT NULL DEFAULT 'user'
         )");
 
+        $this->pdo->exec("CREATE TABLE vaults (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        )");
+
         $this->pdo->exec("CREATE TABLE vault_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
+            vault_id INTEGER NOT NULL,
             item_type TEXT NOT NULL,
             title TEXT NOT NULL,
             encrypted_data TEXT NOT NULL,
             iv TEXT NOT NULL,
             salt TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (vault_id) REFERENCES vaults(id) ON DELETE CASCADE
         )");
 
         // Insert test users
         $stmt = $this->pdo->prepare("INSERT INTO users (id, username, password) VALUES (1, 'alice', 'pass1'), (2, 'bob', 'pass2')");
         $stmt->execute();
+
+        $this->pdo->exec("INSERT INTO vaults (id, user_id, name) VALUES (1, 1, 'Alice Vault'), (2, 2, 'Bob Vault')");
     }
 
     public function testInsertAndFetchVaultItemForSpecificUser(): void
     {
-        $stmt = $this->pdo->prepare("INSERT INTO vault_items (user_id, item_type, title, encrypted_data, iv, salt) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([1, 'password', 'GitHub Account', 'enc_data_1', 'iv_1', 'salt_1']);
-        $stmt->execute([2, 'certificate', 'SSL Certificate', 'enc_data_2', 'iv_2', 'salt_2']);
+        $stmt = $this->pdo->prepare("INSERT INTO vault_items (user_id, vault_id, item_type, title, encrypted_data, iv, salt) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([1, 1, 'password', 'GitHub Account', 'enc_data_1', 'iv_1', 'salt_1']);
+        $stmt->execute([2, 2, 'certificate', 'SSL Certificate', 'enc_data_2', 'iv_2', 'salt_2']);
 
         // Fetch user 1 items
         $stmtFetch = $this->pdo->prepare("SELECT * FROM vault_items WHERE user_id = ?");
@@ -61,7 +74,7 @@ class VaultTest extends TestCase
 
     public function testUserCannotDeleteAnotherUsersVaultItem(): void
     {
-        $stmt = $this->pdo->prepare("INSERT INTO vault_items (id, user_id, item_type, title, encrypted_data, iv, salt) VALUES (10, 1, 'keyfile', 'SSH Key', 'enc_data', 'iv', 'salt')");
+        $stmt = $this->pdo->prepare("INSERT INTO vault_items (id, user_id, vault_id, item_type, title, encrypted_data, iv, salt) VALUES (10, 1, 1, 'keyfile', 'SSH Key', 'enc_data', 'iv', 'salt')");
         $stmt->execute();
 
         // User 2 tries to delete item 10 belonging to User 1
