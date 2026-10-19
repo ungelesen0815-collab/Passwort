@@ -136,6 +136,7 @@ const VaultCrypto = {
 };
 
 var csrfToken = "";
+var vaultId = null;
 var rawVaultItems = [];
 var derivedMasterKey = null;
 var activeSalt = null;
@@ -326,6 +327,7 @@ async function handleAddItem(e) {
     formData.append('encrypted_data', encrypted.ciphertext);
     formData.append('iv', encrypted.iv);
     formData.append('salt', salt);
+    formData.append('vault_id', vaultId);
     formData.append('ajax', '1');
 
     try {
@@ -369,6 +371,7 @@ async function deleteVaultItem(id) {
     formData.append('action', 'delete');
     formData.append('csrf_token', csrfToken);
     formData.append('item_id', id);
+    formData.append('vault_id', vaultId);
     formData.append('ajax', '1');
 
     try {
@@ -432,6 +435,7 @@ function initVaultUI() {
             const rawJson = dataEl.dataset && dataEl.dataset.json ? dataEl.dataset.json : (dataEl.getAttribute('data-json') || dataEl.textContent);
             const data = JSON.parse(rawJson);
             csrfToken = data.csrfToken || "";
+            vaultId = data.vaultId || null;
             rawVaultItems = data.items || [];
         } catch (e) {
             console.error("Failed to parse vault data:", e);
@@ -499,6 +503,7 @@ if (typeof module !== 'undefined' && module.exports) {
         VaultCrypto,
         initVaultUI,
         getCsrfToken: () => csrfToken,
-        getRawVaultItems: () => rawVaultItems
+        getRawVaultItems: () => rawVaultItems,
+        getVaultId: () => vaultId
     };
 }
