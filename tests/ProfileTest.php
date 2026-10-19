@@ -186,8 +186,17 @@ class ProfileTest extends TestCase
             'size' => strlen($validPng),
         ];
 
-        $result = handle_profile_upload($fileData);
+        // We'll simulate a failure to move the uploaded file by making the uploads directory read-only
+        $uploadsDir = __DIR__ . '/../uploads/';
+        if (!is_dir($uploadsDir)) {
+            mkdir($uploadsDir, 0755, true);
+        }
+        chmod($uploadsDir, 0555);
+
+        $result = @handle_profile_upload($fileData);
         $this->assertEquals([null, 'Error moving uploaded file.'], $result);
+
+        chmod($uploadsDir, 0755);
 
         if (file_exists($tmpFile)) {
             unlink($tmpFile);

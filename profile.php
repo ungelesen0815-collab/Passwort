@@ -232,8 +232,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $user['profile_picture'] = $profilePicturePath;
                     }
 
-                    if ($profilePicturePath && $oldPicture && file_exists(__DIR__ . '/' . $oldPicture)) {
-                        unlink(__DIR__ . '/' . $oldPicture);
+                    if ($profilePicturePath && $oldPicture) {
+                        $oldFileName = basename($oldPicture);
+                        $safeOldFilePath = __DIR__ . '/uploads/' . $oldFileName;
+                        if (file_exists($safeOldFilePath)) {
+                            unlink($safeOldFilePath);
+                        }
                     }
                 } else {
                     $error = 'Database update failed.';
