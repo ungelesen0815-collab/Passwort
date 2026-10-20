@@ -20,8 +20,9 @@ const VaultCrypto = {
      */
     base64ToBuffer(base64) {
         const binary = window.atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
+        const len = binary.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
             bytes[i] = binary.charCodeAt(i);
         }
         return bytes;
