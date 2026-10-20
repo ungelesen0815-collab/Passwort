@@ -93,9 +93,10 @@ class AuthUtilsTest extends TestCase
         $_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.195, 70.41.3.18, 10.0.0.1';
         $this->assertEquals('70.41.3.18', get_client_ip());
 
-        // Ignore invalid IPs in chain and select right-most valid untrusted IP
+        // Break chain on invalid IP, fallback to remote address or last untrusted valid IP
+        // Here the right-most is invalid, so it breaks and returns REMOTE_ADDR since we traverse backwards and find invalid before trusted proxy chain breaks.
         $_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.195, invalid_ip';
-        $this->assertEquals('203.0.113.195', get_client_ip());
+        $this->assertEquals('192.168.1.1', get_client_ip());
 
         // When REMOTE_ADDR is untrusted despite TRUSTED_PROXIES being set, return REMOTE_ADDR
         $_SERVER['REMOTE_ADDR'] = '10.0.0.99';

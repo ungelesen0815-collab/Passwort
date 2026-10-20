@@ -25,9 +25,16 @@ function get_client_ip(): string {
         $raw_ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
         for ($i = count($raw_ips) - 1; $i >= 0; $i--) {
             $ip = trim($raw_ips[$i]);
-            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP) && !isset($trusted_proxies_map[$ip])) {
+            if ($ip === '') {
+                continue;
+            }
+            if (isset($trusted_proxies_map[$ip])) {
+                continue;
+            }
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
                 return $ip;
             }
+            return $remote_addr;
         }
     }
 
