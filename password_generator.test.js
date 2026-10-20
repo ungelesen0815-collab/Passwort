@@ -42,4 +42,3 @@ assert.strictEqual(mockLengthInput.value, '16');
 showFeedback();
 assert.strictEqual(mockCopyFeedback.classList.contains('d-none'), false);
 
-console.log('Password Generator JS tests passed');
