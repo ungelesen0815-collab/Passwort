@@ -68,9 +68,14 @@ try {
         // @phpstan-ignore-next-line
         $totalUsers = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
         if (is_writable(dirname($cacheFile)) && (!file_exists($cacheFile) || is_writable($cacheFile))) {
-            $tmpFile = $cacheFile . '.' . bin2hex(random_bytes(4)) . '.tmp';
-            if (file_put_contents($tmpFile, (string)$totalUsers, LOCK_EX) !== false) {
-                @rename($tmpFile, $cacheFile);
+            $tmpFile = tempnam(dirname($cacheFile), 'admin_cache_');
+            if ($tmpFile !== false) {
+                if (file_put_contents($tmpFile, (string)$totalUsers, LOCK_EX) !== false) {
+                    @chmod($tmpFile, 0666 & ~umask());
+                    @rename($tmpFile, $cacheFile);
+                } else {
+                    @unlink($tmpFile);
+                }
             }
         }
     }
