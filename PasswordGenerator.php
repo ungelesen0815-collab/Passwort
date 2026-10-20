@@ -95,7 +95,8 @@ class PasswordGenerator
 
         // Fill remaining slots
         $allCharsLen = strlen($allChars);
-        while (count($passwordChars) < $length) {
+        $currentCount = count($passwordChars);
+        for ($i = $currentCount; $i < $length; $i++) {
             $passwordChars[] = $allChars[random_int(0, $allCharsLen - 1)];
         }
 
