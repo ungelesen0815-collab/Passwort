@@ -24,7 +24,10 @@ function check_login_rate_limit(PDO $pdo, string $ip_address, string $username, 
 }
 
 function authenticate_user(PDO $pdo, string $username, string $password): ?array {
-    if ($username === '' || $password === '' || strlen($username) > 250 || strlen($password) > 72) {
+    $username_len = strlen($username);
+    $password_len = strlen($password);
+
+    if ($username_len === 0 || $password_len === 0 || $username_len > 250 || $password_len > 72) {
         return null;
     }
 
@@ -73,11 +76,14 @@ function handle_login_request(PDO $pdo): ?string {
     $username = trim((string)($_POST['username'] ?? ''));
     $password = (string)($_POST['password'] ?? '');
 
-    if ($username === '' || $password === '') {
+    $username_len = strlen($username);
+    $password_len = strlen($password);
+
+    if ($username_len === 0 || $password_len === 0) {
         return 'Username and password are required.';
     }
 
-    if (strlen($username) > 250 || strlen($password) > 72) {
+    if ($username_len > 250 || $password_len > 72) {
         return 'Invalid credentials.';
     }
 
