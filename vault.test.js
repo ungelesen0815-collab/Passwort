@@ -33,5 +33,3 @@ mockVaultData = {
 };
 initVaultUI();
 assert.strictEqual(getCsrfToken(), 'fallback_token');
-
-console.log('Vault JS tests passed');
