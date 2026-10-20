@@ -226,14 +226,18 @@ async function renderVaultItems() {
     let keyfileCount = 0;
     let certCount = 0;
 
-    for (const item of rawVaultItems) {
-        let payload = null;
+    const payloads = await Promise.all(rawVaultItems.map(async (item) => {
         try {
             const jsonStr = await VaultCrypto.decryptVaultData(derivedMasterKey, item.encrypted_data, item.iv);
-            payload = JSON.parse(jsonStr);
+            return JSON.parse(jsonStr);
         } catch (e) {
-            payload = { error: 'Entschlüsselungsfehler' };
+            return { error: 'Entschlüsselungsfehler' };
         }
+    }));
+
+    for (let i = 0; i < rawVaultItems.length; i++) {
+        const item = rawVaultItems[i];
+        const payload = payloads[i];
 
         if (item.item_type === 'password') {
             passwordCount++;
