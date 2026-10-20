@@ -48,14 +48,8 @@ function increment_login_attempts(PDO $pdo, string $identifier, int $current_tim
         return (int)$stmt->fetchColumn();
     }
 
-    $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
-    if ($driver === 'sqlite') {
-        $stmt = $pdo->prepare('INSERT INTO login_attempts (ip_address, attempts, last_attempt) VALUES (?, 1, ?) ON CONFLICT(ip_address) DO UPDATE SET attempts = CASE WHEN ? - last_attempt > 300 THEN 1 ELSE attempts + 1 END, last_attempt = ?');
-        $stmt->execute([$identifier, $current_time, $current_time, $current_time]);
-    } else {
-        $stmt = $pdo->prepare('INSERT INTO login_attempts (ip_address, attempts, last_attempt) VALUES (?, LAST_INSERT_ID(1), ?) ON DUPLICATE KEY UPDATE attempts = LAST_INSERT_ID(IF(? - last_attempt > 300, 1, attempts + 1)), last_attempt = ?');
-        $stmt->execute([$identifier, $current_time, $current_time, $current_time]);
-    }
+    $stmt = $pdo->prepare('INSERT INTO login_attempts (ip_address, attempts, last_attempt) VALUES (?, LAST_INSERT_ID(1), ?) ON DUPLICATE KEY UPDATE attempts = LAST_INSERT_ID(IF(? - last_attempt > 300, 1, attempts + 1)), last_attempt = ?');
+    $stmt->execute([$identifier, $current_time, $current_time, $current_time]);
 
     return (int)$pdo->lastInsertId();
 }
