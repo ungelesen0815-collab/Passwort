@@ -93,5 +93,3 @@ mockThemeBtn = null;
 
 assert.doesNotThrow(() => initTheme());
 assert.strictEqual(global.document.body.classList.contains('dark-mode'), true);
-
-console.log('Tests passed');
