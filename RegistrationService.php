@@ -18,7 +18,8 @@ class RegistrationService {
             return ['success' => false, 'error' => 'Username must be 3-50 characters and contain only letters, numbers, and underscores.'];
         }
 
-        if (strlen($password) < 8 || strlen($password) > 72) {
+        $passwordLen = strlen($password);
+        if ($passwordLen < 8 || $passwordLen > 72) {
             return ['success' => false, 'error' => 'Password must be between 8 and 72 characters.'];
         }
 
