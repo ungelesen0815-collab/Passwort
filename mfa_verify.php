@@ -5,8 +5,6 @@ require_once 'vendor/autoload.php';
 require_once 'csrf.php';
 require_once 'auth_utils.php';
 
-use RobThree\Auth\TwoFactorAuth;
-
 if (!isset($_SESSION['pending_user_id'])) {
     header('Location: login.php');
     exit;
@@ -49,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            $tfa = new TwoFactorAuth(new \RobThree\Auth\Providers\Qr\EndroidQrCodeProvider(), 'My App');
+            $tfa = new \RobThree\Auth\TwoFactorAuth(new \RobThree\Auth\Providers\Qr\EndroidQrCodeProvider(), 'My App');
 
             if ($tfa->verifyCode($user['mfa_secret'], $code)) {
                 session_regenerate_id(true);
