@@ -94,8 +94,9 @@ class PasswordGenerator
         $allChars = implode('', $sets);
 
         // Fill remaining slots
+        $allCharsLen = strlen($allChars);
         while (count($passwordChars) < $length) {
-            $passwordChars[] = $allChars[random_int(0, strlen($allChars) - 1)];
+            $passwordChars[] = $allChars[random_int(0, $allCharsLen - 1)];
         }
 
         // Cryptographically secure shuffle using Fisher-Yates
