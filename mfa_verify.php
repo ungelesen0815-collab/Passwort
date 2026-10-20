@@ -24,55 +24,52 @@ if (!$user || !$user['mfa_enabled']) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Cast code to string to prevent array injection errors
+    $code = (string)($_POST['mfa_code'] ?? '');
+
+    $ip_address = get_client_ip();
+    $user_identifier = 'user:' . $user['id'];
+    $current_time = time();
+
     try {
         verify_csrf_token($_POST['csrf_token'] ?? null);
-    } catch (Exception $e) {
-        $error = $e->getMessage();
-    }
 
-    if (!$error) {
-        // Cast code to string to prevent array injection errors
-        $code = (string)($_POST['mfa_code'] ?? '');
+        $identifiers = [$ip_address, $user_identifier];
 
-        $ip_address = get_client_ip();
-        $user_identifier = 'user:' . $user['id'];
-        $current_time = time();
-
-        try {
-            $identifiers = [$ip_address, $user_identifier];
-
-            if (is_rate_limited($pdo, $identifiers, $current_time)) {
-                unset($_SESSION['pending_user_id']);
-                header('Location: login.php?error=too_many_attempts');
-                exit;
-            }
-
-            $tfa = new \RobThree\Auth\TwoFactorAuth(new \RobThree\Auth\Providers\Qr\EndroidQrCodeProvider(), 'My App');
-
-            if ($tfa->verifyCode($user['mfa_secret'], $code)) {
-                session_regenerate_id(true);
-
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['role'] = $user['role'];
-                unset($_SESSION['pending_user_id']);
-                header('Location: index.php');
-                exit;
-            } else {
-                $ip_attempts = increment_login_attempts($pdo, $ip_address, $current_time);
-                $user_attempts = increment_login_attempts($pdo, $user_identifier, $current_time);
-
-                if ($ip_attempts >= 5 || $user_attempts >= 5) {
-                    unset($_SESSION['pending_user_id']);
-                    header('Location: login.php?error=too_many_attempts');
-                    exit;
-                }
-                $error = 'Invalid verification code.';
-            }
-        } catch (\PDOException $e) {
-            error_log("Database error in mfa_verify.php: " . $e->getMessage());
-            $error = 'A database error occurred. Please contact the administrator.';
+        if (is_rate_limited($pdo, $identifiers, $current_time)) {
+            unset($_SESSION['pending_user_id']);
+            header('Location: login.php?error=too_many_attempts');
+            exit;
         }
+
+        $tfa = new \RobThree\Auth\TwoFactorAuth(new \RobThree\Auth\Providers\Qr\EndroidQrCodeProvider(), 'My App');
+
+        if ($tfa->verifyCode($user['mfa_secret'], $code)) {
+            session_regenerate_id(true);
+
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'];
+            unset($_SESSION['pending_user_id']);
+            header('Location: index.php');
+            exit;
+        }
+
+        $ip_attempts = increment_login_attempts($pdo, $ip_address, $current_time);
+        $user_attempts = increment_login_attempts($pdo, $user_identifier, $current_time);
+
+        if ($ip_attempts >= 5 || $user_attempts >= 5) {
+            unset($_SESSION['pending_user_id']);
+            header('Location: login.php?error=too_many_attempts');
+            exit;
+        }
+        $error = 'Invalid verification code.';
+
+    } catch (\PDOException $e) {
+        error_log("Database error in mfa_verify.php: " . $e->getMessage());
+        $error = 'A database error occurred. Please contact the administrator.';
+    } catch (\Exception $e) {
+        $error = $e->getMessage();
     }
 }
 
