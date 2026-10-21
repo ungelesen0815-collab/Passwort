@@ -21,6 +21,25 @@ $currentVaultId = isset($_GET['id']) ? (int)$_GET['id'] : null;
 $vaultItems = [];
 $userVaults = [];
 
+// Helper to return response depending on AJAX or Form submission
+$sendResponse = function ($isError, $msg, $statusCode = 200, $extraData = []) {
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
+        header('Content-Type: application/json');
+        if ($statusCode !== 200) {
+            http_response_code($statusCode);
+        }
+        $response = ['success' => !$isError];
+        if ($isError) {
+            $response['error'] = $msg;
+        } else {
+            $response['message'] = $msg;
+        }
+        echo json_encode(array_merge($response, $extraData));
+        exit();
+    }
+    return $msg;
+};
+
 // Handle POST actions (API / AJAX or Form submission)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -28,29 +47,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $csrfError = validate_csrf_token($token);
     if ($csrfError !== null) {
-        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
-            header('Content-Type: application/json');
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Ungültiger CSRF-Token.']);
-            exit();
-        }
-        $error = 'Ungültiger CSRF-Token.';
+        $error = $sendResponse(true, 'Ungültiger CSRF-Token.', 400);
     } else {
         if ($action === 'create_vault') {
             $vaultName = trim($_POST['vault_name'] ?? '');
             if (empty($vaultName)) {
-                $error = 'Tresorname darf nicht leer sein.';
+                $error = $sendResponse(true, 'Tresorname darf nicht leer sein.', 400);
             } else {
                 $stmt = $pdo->prepare("INSERT INTO vaults (user_id, name) VALUES (?, ?)");
                 $stmt->execute([$userId, $vaultName]);
-                $message = 'Tresor erfolgreich erstellt.';
+                $message = $sendResponse(false, 'Tresor erfolgreich erstellt.');
             }
         } elseif ($action === 'delete_vault') {
             $vaultIdToDelete = (int)($_POST['vault_id'] ?? 0);
-            if ($vaultIdToDelete > 0) {
+            if ($vaultIdToDelete <= 0) {
+                $error = $sendResponse(true, 'Ungültige Tresor-ID.', 400);
+            } else {
                 $stmt = $pdo->prepare("DELETE FROM vaults WHERE id = ? AND user_id = ?");
                 $stmt->execute([$vaultIdToDelete, $userId]);
-                $message = 'Tresor gelöscht.';
+                $message = $sendResponse(false, 'Tresor gelöscht.');
             }
         } elseif ($action === 'add') {
             $itemType = $_POST['item_type'] ?? '';
@@ -68,47 +83,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $validVault = $stmt->fetch();
 
             if (!$validVault || !in_array($itemType, $allowedTypes, true) || empty($title) || empty($encryptedData) || empty($iv) || empty($salt)) {
-                if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
-                    header('Content-Type: application/json');
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'Fehlende oder ungültige Felder.']);
-                    exit();
-                }
-                $error = 'Fehlende oder ungültige Felder.';
+                $error = $sendResponse(true, 'Fehlende oder ungültige Felder.', 400);
             } else {
                 $stmt = $pdo->prepare("INSERT INTO vault_items (user_id, vault_id, item_type, title, encrypted_data, iv, salt) VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$userId, $vaultId, $itemType, $title, $encryptedData, $iv, $salt]);
                 $newId = $pdo->lastInsertId();
 
-                if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => true, 'id' => $newId, 'message' => 'Eintrag erfolgreich gespeichert.']);
-                    exit();
-                }
-                $message = 'Eintrag erfolgreich gespeichert.';
+                $message = $sendResponse(false, 'Eintrag erfolgreich gespeichert.', 200, ['id' => $newId]);
             }
         } elseif ($action === 'delete') {
             $itemId = (int)($_POST['item_id'] ?? 0);
             $vaultId = (int)($_POST['vault_id'] ?? 0);
 
             if ($itemId <= 0 || $vaultId <= 0) {
-                if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
-                    header('Content-Type: application/json');
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'Ungültige Bezeichner-ID.']);
-                    exit();
-                }
-                $error = 'Ungültige Bezeichner-ID.';
+                $error = $sendResponse(true, 'Ungültige Bezeichner-ID.', 400);
             } else {
                 $stmt = $pdo->prepare("DELETE FROM vault_items WHERE id = ? AND user_id = ? AND vault_id = ?");
                 $stmt->execute([$itemId, $userId, $vaultId]);
 
-                if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
-                    header('Content-Type: application/json');
-                    echo json_encode(['success' => true, 'message' => 'Eintrag gelöscht.']);
-                    exit();
-                }
-                $message = 'Eintrag gelöscht.';
+                $message = $sendResponse(false, 'Eintrag gelöscht.');
             }
         }
     }
