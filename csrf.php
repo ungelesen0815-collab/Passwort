@@ -5,7 +5,7 @@ if (empty($_SESSION['csrf_token'])) {
 }
 
 function verify_csrf_token($token) {
-    if (!isset($token) || !is_string($token) || !hash_equals($_SESSION['csrf_token'], $token)) {
+    if (!isset($token) || !is_string($token) || !hash_equals((string)$_SESSION['csrf_token'], (string)$token)) {
         throw new Exception('Invalid CSRF token.');
     }
 }
