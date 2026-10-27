@@ -31,53 +31,7 @@ class PasswordGenerator
             throw new InvalidArgumentException("Password length must be between " . self::MIN_LENGTH . " and " . self::MAX_LENGTH . ".");
         }
 
-        $useUppercase = (bool)($options['uppercase'] ?? true);
-        $useLowercase = (bool)($options['lowercase'] ?? true);
-        $useNumbers   = (bool)($options['numbers'] ?? true);
-        $useSpecial   = (bool)($options['special'] ?? true);
-        $excludeAmbiguous = (bool)($options['exclude_ambiguous'] ?? false);
-
-        $sets = [];
-
-        if ($useUppercase) {
-            $set = self::CHAR_UPPERCASE;
-            if ($excludeAmbiguous) {
-                $set = $this->removeAmbiguous($set);
-            }
-            if ($set !== '') {
-                $sets['uppercase'] = $set;
-            }
-        }
-
-        if ($useLowercase) {
-            $set = self::CHAR_LOWERCASE;
-            if ($excludeAmbiguous) {
-                $set = $this->removeAmbiguous($set);
-            }
-            if ($set !== '') {
-                $sets['lowercase'] = $set;
-            }
-        }
-
-        if ($useNumbers) {
-            $set = self::CHAR_NUMBERS;
-            if ($excludeAmbiguous) {
-                $set = $this->removeAmbiguous($set);
-            }
-            if ($set !== '') {
-                $sets['numbers'] = $set;
-            }
-        }
-
-        if ($useSpecial) {
-            $set = self::CHAR_SPECIAL;
-            if ($excludeAmbiguous) {
-                $set = $this->removeAmbiguous($set);
-            }
-            if ($set !== '') {
-                $sets['special'] = $set;
-            }
-        }
+        $sets = $this->getAvailableSets($options);
 
         if (empty($sets)) {
             throw new InvalidArgumentException("At least one character set must be selected.");
@@ -110,6 +64,32 @@ class PasswordGenerator
         }
 
         return implode('', $passwordChars);
+    }
+
+    private function getAvailableSets(array $options): array
+    {
+        $excludeAmbiguous = (bool)($options['exclude_ambiguous'] ?? false);
+        $sets = [];
+
+        $this->addSetIfRequested($sets, 'uppercase', self::CHAR_UPPERCASE, (bool)($options['uppercase'] ?? true), $excludeAmbiguous);
+        $this->addSetIfRequested($sets, 'lowercase', self::CHAR_LOWERCASE, (bool)($options['lowercase'] ?? true), $excludeAmbiguous);
+        $this->addSetIfRequested($sets, 'numbers',   self::CHAR_NUMBERS,   (bool)($options['numbers'] ?? true),   $excludeAmbiguous);
+        $this->addSetIfRequested($sets, 'special',   self::CHAR_SPECIAL,   (bool)($options['special'] ?? true),   $excludeAmbiguous);
+
+        return $sets;
+    }
+
+    private function addSetIfRequested(array &$sets, string $key, string $chars, bool $requested, bool $excludeAmbiguous): void
+    {
+        if ($requested) {
+            $set = $chars;
+            if ($excludeAmbiguous) {
+                $set = $this->removeAmbiguous($set);
+            }
+            if ($set !== '') {
+                $sets[$key] = $set;
+            }
+        }
     }
 
     private function removeAmbiguous(string $set): string
