@@ -80,20 +80,10 @@ try {
 
     if (!$hasVaultId) {
         // Create default vault for all users who have items or just existing users
-        $usersStmt = $pdo->query("SELECT id FROM users");
-        $users = $usersStmt->fetchAll(PDO::FETCH_ASSOC);
+        $pdo->exec("INSERT INTO vaults (user_id, name) SELECT id, 'Default Vault' FROM users");
 
-        foreach ($users as $user) {
-            $userId = $user['id'];
-            // Insert a default vault
-            $insertVaultStmt = $pdo->prepare("INSERT INTO vaults (user_id, name) VALUES (?, 'Default Vault')");
-            $insertVaultStmt->execute([$userId]);
-            $vaultId = $pdo->lastInsertId();
-
-            // Add vault_id to this user's existing vault_items
-            // Temporarily we can't do this easily before column exists, so let's add column first allowing null, then update, then modify to not null
-        }
-
+        // Add vault_id to this user's existing vault_items
+        // Temporarily we can't do this easily before column exists, so let's add column first allowing null, then update, then modify to not null
         $pdo->exec("ALTER TABLE vault_items ADD COLUMN vault_id INT NULL");
 
         // Update vault_items with newly created default vaults
