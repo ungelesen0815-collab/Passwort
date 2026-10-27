@@ -90,7 +90,7 @@ class MigrateTest extends TestCase
             ]);
 
             $this->assertEquals(0, $res['returnCode'], "Migration script output: " . $res['output']);
-            $this->assertStringContainsString("Migration completed successfully: 'users' and 'login_attempts' tables are ready.", $res['output']);
+            $this->assertStringContainsString("Migration completed successfully: 'users', 'login_attempts', 'vaults', and 'vault_items' tables are ready.", $res['output']);
 
             $pdo = $this->getDbConnection($dbName);
 
@@ -152,7 +152,7 @@ class MigrateTest extends TestCase
             ]);
 
             $this->assertEquals(0, $res['returnCode'], "Migration script output: " . $res['output']);
-            $this->assertStringContainsString("Migration completed successfully: 'users' and 'login_attempts' tables are ready.", $res['output']);
+            $this->assertStringContainsString("Migration completed successfully: 'users', 'login_attempts', 'vaults', and 'vault_items' tables are ready.", $res['output']);
 
             // Verify missing columns were added
             $stmt = $pdo->query("SHOW COLUMNS FROM users");
@@ -184,7 +184,7 @@ class MigrateTest extends TestCase
             // Second run
             $res2 = $this->runMigrateScript($env);
             $this->assertEquals(0, $res2['returnCode']);
-            $this->assertStringContainsString("Migration completed successfully: 'users' and 'login_attempts' tables are ready.", $res2['output']);
+            $this->assertStringContainsString("Migration completed successfully: 'users', 'login_attempts', 'vaults', and 'vault_items' tables are ready.", $res2['output']);
         } finally {
             $this->dropIsolatedDb($dbName);
         }

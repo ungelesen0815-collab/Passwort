@@ -97,13 +97,12 @@ try {
         $pdo->exec("ALTER TABLE vault_items ADD COLUMN vault_id INT NULL");
 
         // Update vault_items with newly created default vaults
-        $vaultsStmt = $pdo->query("SELECT id, user_id FROM vaults WHERE name = 'Default Vault'");
-        $vaults = $vaultsStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($vaults as $vault) {
-            $updateStmt = $pdo->prepare("UPDATE vault_items SET vault_id = ? WHERE user_id = ? AND vault_id IS NULL");
-            $updateStmt->execute([$vault['id'], $vault['user_id']]);
-        }
+        $pdo->exec("
+            UPDATE vault_items vi
+            INNER JOIN vaults v ON vi.user_id = v.user_id AND v.name = 'Default Vault'
+            SET vi.vault_id = v.id
+            WHERE vi.vault_id IS NULL
+        ");
 
         // Any orphaned items?
         // Let's create a generic vault for them if they exist but their user somehow doesn't have a default vault
