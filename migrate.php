@@ -118,7 +118,20 @@ try {
         $pdo->exec("ALTER TABLE vault_items ADD CONSTRAINT fk_vault_id FOREIGN KEY (vault_id) REFERENCES vaults(id) ON DELETE CASCADE");
     }
 
-    echo "Migration completed successfully: 'users', 'login_attempts', 'vaults', and 'vault_items' tables are ready.\n";
+    $pdo->exec("CREATE TABLE IF NOT EXISTS crypt_shares (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        file_name VARCHAR(255) NOT NULL,
+        encrypted_data LONGTEXT NOT NULL,
+        iv VARCHAR(255) NOT NULL,
+        salt VARCHAR(255) NOT NULL,
+        access_token VARCHAR(255) UNIQUE NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    echo "Migration completed successfully: 'users', 'login_attempts', 'vaults', 'vault_items', and 'crypt_shares' tables are ready.\n";
 } catch (\PDOException $e) {
     echo "Migration failed: " . $e->getMessage() . "\n";
     exit(1);
