@@ -495,6 +495,10 @@ function initVaultUI() {
     }
 }
 
+if (typeof window !== 'undefined') {
+    window.VaultCrypto = VaultCrypto;
+}
+
 if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initVaultUI);
