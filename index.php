@@ -57,6 +57,15 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
+                <div class="col-md-6 col-lg-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">🔗 Crypt Share</h5>
+                            <p class="card-text">Teilen Sie Dateien sicher und verschlüsselt mit anderen.</p>
+                            <a href="crypt_share.php" class="btn btn-primary">Zum Crypt Share &rarr;</a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
