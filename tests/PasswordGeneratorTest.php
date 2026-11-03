@@ -137,4 +137,45 @@ class PasswordGeneratorTest extends TestCase
             $this::assertMatchesRegularExpression('/[' . preg_quote(PasswordGenerator::CHAR_SPECIAL, '/') . ']/', $password, 'Should contain at least 1 special character');
         }
     }
+
+    public function testExactSpecialCharacterCount(): void
+    {
+        $options = [
+            'uppercase' => true,
+            'lowercase' => true,
+            'numbers'   => true,
+            'special'   => true,
+            'special_count' => 3,
+        ];
+
+        for ($i = 0; $i < 10; $i++) {
+            $password = $this->generator->generate(16, $options);
+            $this::assertEquals(16, strlen($password));
+
+            // Count special characters
+            $specialChars = str_split(PasswordGenerator::CHAR_SPECIAL);
+            $passwordChars = str_split($password);
+            $count = 0;
+            foreach ($passwordChars as $char) {
+                if (in_array($char, $specialChars, true)) {
+                    $count++;
+                }
+            }
+            $this::assertEquals(3, $count, 'Should contain exactly 3 special characters');
+        }
+    }
+
+    public function testSpecialCountExceedsLengthThrowsException(): void
+    {
+        $options = [
+            'uppercase' => true,
+            'lowercase' => true,
+            'numbers'   => true,
+            'special'   => true,
+            'special_count' => 17,
+        ];
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->generator->generate(16, $options);
+    }
 }

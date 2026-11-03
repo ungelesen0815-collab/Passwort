@@ -57,6 +57,19 @@ function initPasswordGeneratorUI() {
             syncLength(this.value);
         });
     }
+
+    const specialCheck = document.getElementById('special');
+    const specialCountInput = document.getElementById('specialCountInput');
+    if (specialCheck && specialCountInput) {
+        specialCheck.addEventListener('change', function() {
+            if (this.checked) {
+                specialCountInput.removeAttribute('disabled');
+            } else {
+                specialCountInput.setAttribute('disabled', 'disabled');
+                specialCountInput.value = '';
+            }
+        });
+    }
 }
 
 if (typeof document !== 'undefined') {

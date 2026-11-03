@@ -14,6 +14,7 @@ $useUppercase = isset($_REQUEST['uppercase']) ? (bool)$_REQUEST['uppercase'] : (
 $useLowercase = isset($_REQUEST['lowercase']) ? (bool)$_REQUEST['lowercase'] : (empty($_REQUEST) || isset($_REQUEST['lowercase']));
 $useNumbers = isset($_REQUEST['numbers']) ? (bool)$_REQUEST['numbers'] : (empty($_REQUEST) || isset($_REQUEST['numbers']));
 $useSpecial = isset($_REQUEST['special']) ? (bool)$_REQUEST['special'] : (empty($_REQUEST) || isset($_REQUEST['special']));
+$specialCount = (isset($_REQUEST['special_count']) && $_REQUEST['special_count'] !== '') ? (int)$_REQUEST['special_count'] : null;
 $excludeAmbiguous = isset($_REQUEST['exclude_ambiguous']) ? (bool)$_REQUEST['exclude_ambiguous'] : false;
 
 $options = [
@@ -23,6 +24,10 @@ $options = [
     'special' => $useSpecial,
     'exclude_ambiguous' => $excludeAmbiguous,
 ];
+
+if ($specialCount !== null) {
+    $options['special_count'] = $specialCount;
+}
 
 $generatedPassword = '';
 $error = '';
@@ -102,6 +107,11 @@ require_once 'header.php';
                                 <label class="form-check-label" for="special">
                                     Sonderzeichen (!@#$%^&amp;*()_+-=[]{}|;:,.&lt;&gt;?)
                                 </label>
+                            </div>
+
+                            <div class="ms-4 mt-2 mb-3">
+                                <label for="specialCountInput" class="form-label mb-1"><small>Genaue Anzahl Sonderzeichen (optional):</small></label>
+                                <input type="number" class="form-control form-control-sm w-auto" id="specialCountInput" name="special_count" min="0" max="<?= PasswordGenerator::MAX_LENGTH ?>" value="<?= htmlspecialchars((string)($specialCount ?? '')) ?>" <?= $useSpecial ? '' : 'disabled' ?>>
                             </div>
 
                             <hr class="my-3">
