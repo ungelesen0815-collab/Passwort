@@ -21,6 +21,7 @@ class PasswordGenerator
      *   - 'lowercase' (bool): Include a-z (default true)
      *   - 'numbers'   (bool): Include 0-9 (default true)
      *   - 'special'   (bool): Include special characters (default true)
+     *   - 'special_count' (int|null): Exact number of special characters to include. Requires 'special' to be true.
      *   - 'exclude_ambiguous' (bool): Exclude ambiguous chars like 0, O, 1, l, I (default false)
      * @return string
      * @throws InvalidArgumentException
@@ -37,21 +38,62 @@ class PasswordGenerator
             throw new InvalidArgumentException("At least one character set must be selected.");
         }
 
+        $specialCount = $options['special_count'] ?? null;
+        if ($specialCount !== null) {
+            $specialCount = (int)$specialCount;
+            if ($specialCount < 0) {
+                throw new InvalidArgumentException("Special character count cannot be negative.");
+            }
+            if ($specialCount > $length) {
+                throw new InvalidArgumentException("Special character count cannot exceed password length.");
+            }
+            if ($specialCount > 0 && !isset($sets['special'])) {
+                throw new InvalidArgumentException("Special characters must be enabled to set a special character count.");
+            }
+        }
+
         $passwordChars = [];
 
-        // Guaranteed inclusion of at least 1 char from each selected set
-        foreach ($sets as $set) {
+        // Exact special characters if requested
+        if ($specialCount !== null && isset($sets['special'])) {
+            $specialSet = $sets['special'];
+            $specialSetLen = strlen($specialSet);
+            for ($i = 0; $i < $specialCount; $i++) {
+                $passwordChars[] = $specialSet[random_int(0, $specialSetLen - 1)];
+            }
+
+            // If we have remaining length and sets, but all remaining length is zero, we handle it below
+            // Remove special from sets for guaranteed inclusion and fill if exact count was used
+            $fillSets = $sets;
+            unset($fillSets['special']);
+
+            // Check if we need to fill other required characters, but don't have space
+            if (count($fillSets) > $length - $specialCount) {
+                throw new InvalidArgumentException("Not enough length to include at least one character from each selected set.");
+            }
+        } else {
+            $fillSets = $sets;
+        }
+
+        // Guaranteed inclusion of at least 1 char from each selected set (remaining)
+        foreach ($fillSets as $set) {
             $passwordChars[] = $set[random_int(0, strlen($set) - 1)];
         }
 
-        // Combine all selected character sets into pool
-        $allChars = implode('', $sets);
+        if (empty($fillSets) && $specialCount !== null && count($passwordChars) < $length) {
+             throw new InvalidArgumentException("Only special characters selected but count is less than length.");
+        }
+
+        // Combine all remaining character sets into pool
+        $allChars = implode('', $fillSets);
+        $allCharsLen = strlen($allChars);
 
         // Fill remaining slots
-        $allCharsLen = strlen($allChars);
-        $currentCount = count($passwordChars);
-        for ($i = $currentCount; $i < $length; $i++) {
-            $passwordChars[] = $allChars[random_int(0, $allCharsLen - 1)];
+        if ($allCharsLen > 0) {
+            $currentCount = count($passwordChars);
+            for ($i = $currentCount; $i < $length; $i++) {
+                $passwordChars[] = $allChars[random_int(0, $allCharsLen - 1)];
+            }
         }
 
         // Cryptographically secure shuffle using Fisher-Yates
