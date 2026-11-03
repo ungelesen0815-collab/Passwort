@@ -37,7 +37,8 @@ $sendResponse = function ($isError, $msg, $statusCode = 200, $extraData = []) {
 };
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+    $csrfError = validate_csrf_token($_POST['csrf_token'] ?? null);
+    if ($csrfError !== null) {
         $error = $sendResponse(true, "Ungültiger CSRF-Token.", 403);
     } else {
         $action = $_POST['action'] ?? '';
