@@ -7,6 +7,10 @@ This is a central dashboard application built with PHP, MySQL, and Bootstrap. It
 - **Registration & Login:** Secure authentication with password hashing.
 - **Role Management:** New users are assigned the `user` role. The initial `admin` must be provisioned via a command-line script. Admins can promote other users to the `admin` role via the Admin Panel.
 - **MFA (Multi-Factor Authentication):** Users can optionally enable MFA (TOTP) using authenticator apps like Google Authenticator or Authy.
+- **Vault:** Store passwords and certificates end-to-end encrypted.
+- **Password Generator:** Generate secure, random passwords with customizable options.
+- **Profile Management:** Manage personal information and profile picture.
+- **Crypt Share:** Teilen Sie Dateien sicher und verschlüsselt mit anderen. (Share files securely and encrypted with others.)
 - **Secure:** Includes CSRF protection for sensitive actions and enforces HTTPS transmission (via `.htaccess`).
 
 ## Requirements
