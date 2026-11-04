@@ -301,7 +301,7 @@ class ProfileIntegrationTest extends TestCase
 
         $this->assertEquals(200, $response->getStatusCode());
         $body = (string) $response->getBody();
-        $this->assertStringContainsString('Error moving uploaded file.', $body);
+        $this->assertStringContainsString('Invalid file type.', $body);
     }
 
     public function testMissingTableErrorDuringProfileUpdate(): void

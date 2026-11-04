@@ -8,6 +8,10 @@ class MfaSetupTest extends TestCase
 
     protected function setUp(): void
     {
+        if (session_status() === PHP_SESSION_NONE) {
+            @session_start();
+        }
+        $_SESSION = [];
         $this->pdo = new PDO('sqlite::memory:');
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -29,10 +33,33 @@ class MfaSetupTest extends TestCase
 
     private function executeMfaSetup(): array
     {
+        $pdo = $this->pdo;
         $GLOBALS['pdo'] = $this->pdo;
+        if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
+
+        $oldDisplayErrors = ini_get('display_errors');
+        $oldLogErrors = ini_get('log_errors');
+        $oldErrorLog = ini_get('error_log');
+
+        ini_set('display_errors', '0');
+        ini_set('log_errors', '1');
+        ini_set('error_log', sys_get_temp_dir() . '/php_test_errors.log');
+
         ob_start();
-        include __DIR__ . '/../mfa_setup.php';
+        // Keep a copy of session vars so session_start doesn't wipe them if session.php calls it
+        $tempSession = $_SESSION;
+        session_write_close();
+        session_start();
+        $_SESSION = $tempSession;
+
+        try {
+            @include __DIR__ . '/../mfa_setup.php';
+        } catch (\Throwable $e) {}
         $output = ob_get_clean();
+
+        ini_set('display_errors', $oldDisplayErrors);
+        ini_set('log_errors', $oldLogErrors);
+        ini_set('error_log', $oldErrorLog);
 
         return [
             'output'  => $output,

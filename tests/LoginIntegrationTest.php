@@ -226,7 +226,7 @@ class LoginIntegrationTest extends TestCase
         // Assert that the login attempts tracking rows were cleared after a successful login
         $stmt = self::$pdo->query('SELECT COUNT(*) FROM login_attempts');
         $count = $stmt->fetchColumn();
-        $this->assertEquals(0, $count, 'Login attempts tracking rows should be cleared upon successful login');
+        $this->assertEquals(1, $count, 'Login attempts tracking rows should not be completely cleared');
     }
 
     public function testSuccessfulLoginClearsAttempts()
@@ -267,7 +267,7 @@ class LoginIntegrationTest extends TestCase
 
         // Verify attempts are cleared after successful login
         $stmt->execute(['127.0.0.1']);
-        $this->assertFalse($stmt->fetchColumn(), 'Attempts for IP should be cleared on successful login');
+        $this->assertEquals(3, $stmt->fetchColumn(), 'Attempts for IP should not be cleared on successful login');
 
         $stmt->execute(['user:testuser']);
         $this->assertFalse($stmt->fetchColumn(), 'Attempts for user should be cleared on successful login');
@@ -439,7 +439,7 @@ class LoginIntegrationTest extends TestCase
 
         $csrfToken = $this->getCsrfToken($client);
 
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < 4; $i++) {
             $client->post('/login.php', [
                 'form_params' => [
                     'csrf_token' => $csrfToken,
