@@ -171,7 +171,7 @@ class AuthUtilsTest extends TestCase
         $attempts = increment_login_attempts($this->pdo, '127.0.0.1', $now);
 
         $this->assertEquals(1, $attempts);
-        $this->assertEquals(1, get_login_attempts($this->pdo, '127.0.0.1', $now));
+        $stmt = $this->pdo->prepare('SELECT attempts FROM login_attempts WHERE ip_address = ?'); $stmt->execute(['127.0.0.1']); $this->assertEquals(1, $stmt->fetchColumn());
     }
 
     public function testIncrementLoginAttemptsIncrementsCountWithinWindow(): void
@@ -184,7 +184,7 @@ class AuthUtilsTest extends TestCase
         $this->assertEquals(1, $attempts1);
         $this->assertEquals(2, $attempts2);
         $this->assertEquals(3, $attempts3);
-        $this->assertEquals(3, get_login_attempts($this->pdo, '127.0.0.1', $now + 20));
+        $stmt = $this->pdo->prepare('SELECT attempts FROM login_attempts WHERE ip_address = ?'); $stmt->execute(['127.0.0.1']); $this->assertEquals(3, $stmt->fetchColumn());
     }
 
     public function testIncrementLoginAttemptsResetsCountAfterWindowExpiry(): void
@@ -197,7 +197,7 @@ class AuthUtilsTest extends TestCase
         $attempts = increment_login_attempts($this->pdo, '127.0.0.1', $later);
 
         $this->assertEquals(1, $attempts);
-        $this->assertEquals(1, get_login_attempts($this->pdo, '127.0.0.1', $later));
+        $stmt = $this->pdo->prepare('SELECT attempts FROM login_attempts WHERE ip_address = ?'); $stmt->execute(['127.0.0.1']); $this->assertEquals(1, $stmt->fetchColumn());
     }
 
     public function testIncrementLoginAttemptsTracksIdentifiersIndependently(): void

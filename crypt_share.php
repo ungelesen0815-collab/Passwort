@@ -155,15 +155,5 @@ require_once 'navbar.php';
 
 <script src="vault.js"></script>
 <script src="crypt_share.js"></script>
-<script>
-    function copyShareInfo() {
-        const link = document.getElementById('shareLinkResult').href;
-        const pwd = document.getElementById('sharePasswordResult').innerText;
-        const text = `Hier ist eine sicher geteilte Datei für dich:\n\nLink: ${link}\nPasswort: ${pwd}\n\nDieser Link ist für 24 Stunden gültig.`;
-        navigator.clipboard.writeText(text).then(() => {
-            alert('Link und Passwort in die Zwischenablage kopiert.');
-        });
-    }
-</script>
 
 <?php require_once 'footer.php'; ?>
