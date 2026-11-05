@@ -22,7 +22,33 @@ async function readFileAsArrayBuffer(file) {
     });
 }
 
+const MAX_SHARE_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 document.addEventListener('DOMContentLoaded', () => {
+    const copyInfoBtn = document.getElementById('btnCopyShareInfo');
+    if (copyInfoBtn) {
+        copyInfoBtn.addEventListener('click', copyShareInfo);
+    }
+
+    document.querySelectorAll('.btn-copy-share-link').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const url = btn.getAttribute('data-url');
+            if (url && navigator.clipboard) {
+                navigator.clipboard.writeText(url).then(() => {
+                    alert('Link in die Zwischenablage kopiert.');
+                });
+            }
+        });
+    });
+
+    document.querySelectorAll('.delete-share-form').forEach((delForm) => {
+        delForm.addEventListener('submit', (e) => {
+            if (!confirm('Möchten Sie diese Freigabe wirklich löschen?')) {
+                e.preventDefault();
+            }
+        });
+    });
+
     const form = document.getElementById('shareForm');
     if (!form) return;
 
@@ -32,6 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const fileInput = document.getElementById('shareFile');
         const file = fileInput.files[0];
         if (!file) return;
+
+        if (file.size > MAX_SHARE_FILE_BYTES) {
+            alert('Die Datei ist zu groß (maximal 10 MB erlaubt).');
+            return;
+        }
 
         const btn = document.getElementById('btnShare');
         const originalBtnText = btn.innerText;

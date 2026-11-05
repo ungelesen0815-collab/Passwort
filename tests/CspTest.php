@@ -9,10 +9,23 @@ class CspTest extends TestCase
         $sessionContent = file_get_contents(__DIR__ . '/../session.php');
 
         $this->assertStringContainsString(
-            "header(\"Content-Security-Policy: default-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' data:;\");",
+            "header(\"Content-Security-Policy: default-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' data:;\");",
             $sessionContent,
-            'session.php should configure CSP headers allowing inline styles and scripts'
+            'session.php should configure strict CSP headers without unsafe-inline or unsafe-eval in script-src'
         );
+    }
+
+    public function testNoInlineEventHandlersInPhpFiles(): void
+    {
+        $phpFiles = glob(__DIR__ . '/../*.php');
+        foreach ($phpFiles as $file) {
+            $content = file_get_contents($file);
+            $this->assertDoesNotMatchRegularExpression(
+                '/\bon(?:click|submit|change|load|error|keyup|keydown|mouseover)\s*=\s*["\']/i',
+                $content,
+                basename($file) . ' should not contain inline JS event handlers'
+            );
+        }
     }
 
     public function testPasswordGeneratorNoInlineStyles(): void

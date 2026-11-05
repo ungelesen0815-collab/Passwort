@@ -17,6 +17,21 @@ if (!isset($_SESSION['user_id'])) {
 $userId = $_SESSION['user_id'];
 $message = '';
 $error = '';
+const MAX_ENCRYPTED_SHARE_BYTES = 20971520; // ~20 MB encrypted payload limit
+
+function get_share_base_url(): string {
+    $configuredUrl = $_ENV['APP_URL'] ?? getenv('APP_URL') ?: '';
+    if (is_string($configuredUrl) && trim($configuredUrl) !== '') {
+        return rtrim(trim($configuredUrl), '/');
+    }
+
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $rawHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $host = preg_match('/^[a-zA-Z0-9.-]+(:[0-9]+)?$/', $rawHost) ? $rawHost : 'localhost';
+    $basePath = rtrim(str_replace('\\', '/', dirname($_SERVER['PHP_SELF'] ?? '')), '/');
+
+    return $scheme . '://' . $host . $basePath;
+}
 
 $sendResponse = function ($isError, $msg, $statusCode = 200, $extraData = []) {
     if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
@@ -44,13 +59,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = $_POST['action'] ?? '';
 
         if ($action === 'create_share') {
-            $fileName = $_POST['file_name'] ?? '';
-            $encryptedData = $_POST['encrypted_data'] ?? '';
-            $iv = $_POST['iv'] ?? '';
-            $salt = $_POST['salt'] ?? '';
+            $fileName = trim((string)($_POST['file_name'] ?? ''));
+            $encryptedData = (string)($_POST['encrypted_data'] ?? '');
+            $iv = trim((string)($_POST['iv'] ?? ''));
+            $salt = trim((string)($_POST['salt'] ?? ''));
 
-            if (!$fileName || !$encryptedData || !$iv || !$salt) {
+            if ($fileName === '' || $encryptedData === '' || $iv === '' || $salt === '') {
                 $error = $sendResponse(true, "Bitte alle Felder ausfüllen.", 400);
+            } elseif (strlen($fileName) > 255 || strlen($iv) > 255 || strlen($salt) > 255) {
+                $error = $sendResponse(true, "Ungültige Eingabelänge.", 400);
+            } elseif (strlen($encryptedData) > MAX_ENCRYPTED_SHARE_BYTES) {
+                $error = $sendResponse(true, "Die Datei überschreitet das zulässige Größenlimit (max. 10 MB).", 400);
             } else {
                 $accessToken = bin2hex(random_bytes(16));
                 $expiresAt = date('Y-m-d H:i:s', strtotime('+24 hours'));
@@ -59,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $pdo->prepare("INSERT INTO crypt_shares (user_id, file_name, encrypted_data, iv, salt, access_token, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
                     $stmt->execute([$userId, $fileName, $encryptedData, $iv, $salt, $accessToken, $expiresAt]);
 
-                    $shareUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/share.php?token=" . $accessToken;
+                    $shareUrl = get_share_base_url() . "/share.php?token=" . $accessToken;
 
                     $sendResponse(false, "Share erfolgreich erstellt.", 200, ['share_url' => $shareUrl]);
                 } catch (\PDOException $e) {
@@ -67,14 +86,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = $sendResponse(true, "Fehler beim Speichern des Shares.", 500);
                 }
             }
+        } elseif ($action === 'delete_share') {
+            $shareId = (int)($_POST['share_id'] ?? 0);
+            if ($shareId <= 0) {
+                $error = $sendResponse(true, "Ungültige Freigabe-ID.", 400);
+            } else {
+                try {
+                    $stmt = $pdo->prepare("DELETE FROM crypt_shares WHERE id = ? AND user_id = ?");
+                    $stmt->execute([$shareId, $userId]);
+                    $message = $sendResponse(false, "Freigabe wurde gelöscht.");
+                } catch (\PDOException $e) {
+                    error_log($e->getMessage());
+                    $error = $sendResponse(true, "Fehler beim Löschen der Freigabe.", 500);
+                }
+            }
         }
     }
 }
 
-// Fetch active shares for user
-$stmt = $pdo->prepare("SELECT id, file_name, access_token, expires_at, created_at FROM crypt_shares WHERE user_id = ? AND expires_at > NOW() ORDER BY created_at DESC");
-$stmt->execute([$userId]);
-$shares = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Clean up expired shares for current user and fetch active shares
+$shares = [];
+try {
+    $nowFormatted = date('Y-m-d H:i:s');
+    $cleanupStmt = $pdo->prepare("DELETE FROM crypt_shares WHERE user_id = ? AND expires_at <= ?");
+    $cleanupStmt->execute([$userId, $nowFormatted]);
+
+    $stmt = $pdo->prepare("SELECT id, file_name, access_token, expires_at, created_at FROM crypt_shares WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC");
+    $stmt->execute([$userId, $nowFormatted]);
+    $shares = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (\PDOException $e) {
+    error_log("Database error in crypt_share.php: " . $e->getMessage());
+    $error = 'Fehler beim Laden der aktiven Freigaben.';
+}
 
 require_once 'header.php';
 require_once 'navbar.php';
@@ -113,7 +156,7 @@ require_once 'navbar.php';
                     <div class="mb-2">
                         <strong>Einmal-Passwort:</strong> <code id="sharePasswordResult" class="fs-5 bg-light p-1 border rounded"></code>
                     </div>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="copyShareInfo()">Info kopieren</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCopyShareInfo">Info kopieren</button>
                 </div>
             </div>
         </div>
@@ -138,9 +181,15 @@ require_once 'navbar.php';
                         <td><?= htmlspecialchars(date('d.m.Y H:i', strtotime($share['expires_at']))) ?></td>
                         <td>
                             <?php
-                                $url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]" . dirname($_SERVER['PHP_SELF']) . "/share.php?token=" . urlencode($share['access_token']);
+                                $url = get_share_base_url() . "/share.php?token=" . urlencode($share['access_token']);
                             ?>
-                            <button class="btn btn-sm btn-outline-primary" onclick="navigator.clipboard.writeText('<?= htmlspecialchars($url) ?>')">Link kopieren</button>
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-copy-share-link me-1" data-url="<?= htmlspecialchars($url) ?>">Link kopieren</button>
+                            <form method="POST" action="crypt_share.php" class="d-inline delete-share-form">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                                <input type="hidden" name="action" value="delete_share">
+                                <input type="hidden" name="share_id" value="<?= (int)$share['id'] ?>">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Löschen</button>
+                            </form>
                         </td>
                     </tr>
                     <?php endforeach; ?>

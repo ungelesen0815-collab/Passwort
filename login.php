@@ -97,7 +97,9 @@ function handle_login_request(PDO $pdo): ?string {
 
     $user = authenticate_user($pdo, $username, $password);
     if ($user !== null) {
-        clear_login_attempts($pdo, 'user:' . $username);
+        if (empty($user['mfa_enabled'])) {
+            clear_login_attempts($pdo, 'user:' . $username);
+        }
         handle_authenticated_session($user);
     }
 

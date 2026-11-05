@@ -17,6 +17,11 @@ if ($username === '' || $password === '') {
     exit(1);
 }
 
+if (!preg_match('/^[a-zA-Z0-9_]{3,50}$/', $username)) {
+    echo "Username must be 3-50 characters and contain only letters, numbers, and underscores.\n";
+    exit(1);
+}
+
 if (strlen($password) < 8 || strlen($password) > 72) {
     echo "Password must be between 8 and 72 characters.\n";
     exit(1);
@@ -29,6 +34,10 @@ $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 try {
     $stmt = $pdo->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, 'admin')");
     $stmt->execute([$username, $hashedPassword]);
+    $cacheFile = __DIR__ . '/cache/admin_user_count.cache';
+    if (file_exists($cacheFile)) {
+        @unlink($cacheFile);
+    }
     echo "Admin user '{$username}' created successfully.\n";
 } catch (\PDOException $e) {
     if ($e->getCode() == 23000) {

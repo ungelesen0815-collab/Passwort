@@ -85,3 +85,58 @@ function get_user_by_id(PDO $pdo, int|string $id): array|false {
     $stmt->execute([$id]);
     return $stmt->fetch();
 }
+
+function get_mfa_encryption_key(): ?string {
+    $rawKey = $_ENV['MFA_ENCRYPTION_KEY'] ?? getenv('MFA_ENCRYPTION_KEY') ?: '';
+    if (!is_string($rawKey) || trim($rawKey) === '') {
+        return null;
+    }
+    return hash('sha256', trim($rawKey), true);
+}
+
+function encrypt_mfa_secret(string $secret): string {
+    $key = get_mfa_encryption_key();
+    if ($key === null || $secret === '') {
+        return $secret;
+    }
+
+    $iv = random_bytes(12);
+    $tag = '';
+    $ciphertext = openssl_encrypt($secret, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, '', 16);
+    if ($ciphertext === false) {
+        return $secret;
+    }
+
+    return 'enc:v1:' . base64_encode($iv . $tag . $ciphertext);
+}
+
+function decrypt_mfa_secret(?string $storedSecret): string {
+    if (!is_string($storedSecret) || $storedSecret === '') {
+        return '';
+    }
+
+    if (!str_starts_with($storedSecret, 'enc:v1:')) {
+        return $storedSecret;
+    }
+
+    $key = get_mfa_encryption_key();
+    if ($key === null) {
+        throw new RuntimeException('MFA_ENCRYPTION_KEY is required to decrypt stored MFA secret.');
+    }
+
+    $decoded = base64_decode(substr($storedSecret, 7), true);
+    if ($decoded === false || strlen($decoded) <= 28) {
+        throw new RuntimeException('Invalid encrypted MFA secret payload.');
+    }
+
+    $iv = substr($decoded, 0, 12);
+    $tag = substr($decoded, 12, 16);
+    $ciphertext = substr($decoded, 28);
+
+    $plaintext = openssl_decrypt($ciphertext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+    if ($plaintext === false) {
+        throw new RuntimeException('Failed to decrypt MFA secret.');
+    }
+
+    return $plaintext;
+}

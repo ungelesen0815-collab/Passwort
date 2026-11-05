@@ -1,37 +1,34 @@
 <?php
+require_once __DIR__ . '/session.php';
 require_once 'db.php';
 
-$token = $_GET['token'] ?? '';
+$token = is_string($_GET['token'] ?? null) ? trim($_GET['token']) : '';
 $error = '';
 $share = null;
 
-if (!$token) {
+if ($token === '') {
     $error = 'Kein Zugriffs-Token angegeben.';
 } else {
-    $stmt = $pdo->prepare("SELECT file_name, encrypted_data, iv, salt, expires_at FROM crypt_shares WHERE access_token = ?");
-    $stmt->execute([$token]);
-    $share = $stmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->prepare("SELECT file_name, encrypted_data, iv, salt, expires_at FROM crypt_shares WHERE access_token = ?");
+        $stmt->execute([$token]);
+        $share = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$share) {
-        $error = 'Diese Freigabe existiert nicht oder wurde gelöscht.';
-    } elseif (strtotime($share['expires_at']) < time()) {
-        $error = 'Dieser Freigabe-Link ist abgelaufen.';
-        $share = null;
+        if (!$share) {
+            $error = 'Diese Freigabe existiert nicht oder wurde gelöscht.';
+        } elseif (strtotime($share['expires_at']) < time()) {
+            $error = 'Dieser Freigabe-Link ist abgelaufen.';
+            $share = null;
+        }
+    } catch (\PDOException $e) {
+        error_log("Database error in share.php: " . $e->getMessage());
+        $error = 'Ein Datenbankfehler ist aufgetreten.';
     }
 }
 
-// Minimal header without auth requirements
+$pageTitle = 'Crypt Share - Datei Herunterladen';
+require_once 'header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypt Share - Datei Herunterladen</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
             <span class="navbar-brand">Crypt Share</span>
@@ -78,5 +75,4 @@ if (!$token) {
 
     <script src="vault.js"></script>
     <script src="share.js"></script>
-</body>
-</html>
+<?php require_once 'footer.php'; ?>

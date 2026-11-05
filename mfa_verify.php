@@ -29,12 +29,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $ip_address = get_client_ip();
     $user_identifier = 'user:' . $user['id'];
+    $username_identifier = 'user:' . ($user['username'] ?? $user['id']);
     $current_time = time();
 
     try {
         verify_csrf_token($_POST['csrf_token'] ?? null);
 
-        $identifiers = [$ip_address, $user_identifier];
+        $identifiers = [$ip_address, $user_identifier, $username_identifier];
 
         if (is_rate_limited($pdo, $identifiers, $current_time)) {
             unset($_SESSION['pending_user_id']);
@@ -43,8 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $tfa = new \RobThree\Auth\TwoFactorAuth(new \RobThree\Auth\Providers\Qr\EndroidQrCodeProvider(), 'My App');
+        $decryptedSecret = decrypt_mfa_secret($user['mfa_secret'] ?? '');
 
-        if ($tfa->verifyCode($user['mfa_secret'], $code)) {
+        if ($decryptedSecret !== '' && $tfa->verifyCode($decryptedSecret, $code)) {
+            clear_login_attempts($pdo, $user_identifier);
+            clear_login_attempts($pdo, $username_identifier);
             session_regenerate_id(true);
 
             $_SESSION['user_id'] = $user['id'];
@@ -57,6 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $ip_attempts = increment_login_attempts($pdo, $ip_address, $current_time);
         $user_attempts = increment_login_attempts($pdo, $user_identifier, $current_time);
+        if ($username_identifier !== $user_identifier) {
+            increment_login_attempts($pdo, $username_identifier, $current_time);
+        }
 
         if ($ip_attempts >= 5 || $user_attempts >= 5) {
             unset($_SESSION['pending_user_id']);

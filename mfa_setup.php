@@ -61,11 +61,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (isset($_POST['verify_mfa'])) {
             $code = (string)($_POST['mfa_code'] ?? '');
             $secret = $_SESSION['temp_mfa_secret'] ?? '';
+            $ip_address = get_client_ip();
+            $user_identifier = 'user:' . $user['username'];
+            $current_time = time();
 
-            if ($tfa->verifyCode($secret, $code)) {
+            if (is_rate_limited($pdo, [$ip_address, $user_identifier], $current_time)) {
+                $error = 'Too many failed attempts. Please try again later.';
+            } elseif ($secret !== '' && $tfa->verifyCode($secret, $code)) {
+                clear_login_attempts($pdo, $user_identifier);
+                $storedSecret = encrypt_mfa_secret($secret);
                 try {
                     $stmt = $pdo->prepare('UPDATE users SET mfa_enabled = 1, mfa_secret = ? WHERE id = ?');
-                    $stmt->execute([$secret, $_SESSION['user_id']]);
+                    $stmt->execute([$storedSecret, $_SESSION['user_id']]);
                     $success = 'MFA successfully enabled.';
                     $user['mfa_enabled'] = 1;
                     unset($_SESSION['temp_mfa_secret']);
@@ -74,6 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'A database error occurred.';
                 }
             } else {
+                increment_login_attempts($pdo, $ip_address, $current_time);
+                increment_login_attempts($pdo, $user_identifier, $current_time);
                 $error = 'Invalid code. Try again.';
             }
         }
