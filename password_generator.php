@@ -10,10 +10,13 @@ if (!isset($_SESSION['user_id'])) {
 $generator = new PasswordGenerator();
 
 $length = isset($_REQUEST['length']) ? (int)$_REQUEST['length'] : PasswordGenerator::DEFAULT_LENGTH;
-$useUppercase = isset($_REQUEST['uppercase']) ? (bool)$_REQUEST['uppercase'] : (empty($_REQUEST) || isset($_REQUEST['uppercase']));
-$useLowercase = isset($_REQUEST['lowercase']) ? (bool)$_REQUEST['lowercase'] : (empty($_REQUEST) || isset($_REQUEST['lowercase']));
-$useNumbers = isset($_REQUEST['numbers']) ? (bool)$_REQUEST['numbers'] : (empty($_REQUEST) || isset($_REQUEST['numbers']));
-$useSpecial = isset($_REQUEST['special']) ? (bool)$_REQUEST['special'] : (empty($_REQUEST) || isset($_REQUEST['special']));
+$hasCharsetParams = isset($_REQUEST['uppercase']) || isset($_REQUEST['lowercase']) || isset($_REQUEST['numbers']) || isset($_REQUEST['special']);
+$isFormSubmit = isset($_REQUEST['length_range']) || $hasCharsetParams || isset($_REQUEST['exclude_ambiguous']) || isset($_REQUEST['special_count']);
+
+$useUppercase = isset($_REQUEST['uppercase']) ? (bool)$_REQUEST['uppercase'] : !$isFormSubmit;
+$useLowercase = isset($_REQUEST['lowercase']) ? (bool)$_REQUEST['lowercase'] : !$isFormSubmit;
+$useNumbers = isset($_REQUEST['numbers']) ? (bool)$_REQUEST['numbers'] : !$isFormSubmit;
+$useSpecial = isset($_REQUEST['special']) ? (bool)$_REQUEST['special'] : !$isFormSubmit;
 $specialCount = (isset($_REQUEST['special_count']) && $_REQUEST['special_count'] !== '') ? (int)$_REQUEST['special_count'] : null;
 $excludeAmbiguous = isset($_REQUEST['exclude_ambiguous']) ? (bool)$_REQUEST['exclude_ambiguous'] : false;
 

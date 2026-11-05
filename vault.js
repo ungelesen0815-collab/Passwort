@@ -141,6 +141,23 @@ var vaultId = null;
 var rawVaultItems = [];
 var derivedMasterKey = null;
 var activeSalt = null;
+var activeMasterPassword = null;
+var derivedKeysBySalt = new Map();
+
+async function getKeyForSalt(salt) {
+    if (!salt || salt === activeSalt) {
+        return derivedMasterKey;
+    }
+    if (derivedKeysBySalt.has(salt)) {
+        return derivedKeysBySalt.get(salt);
+    }
+    if (!activeMasterPassword) {
+        return derivedMasterKey;
+    }
+    const key = await VaultCrypto.deriveMasterKey(activeMasterPassword, salt);
+    derivedKeysBySalt.set(salt, key);
+    return key;
+}
 
 function toggleFormFields() {
     const type = document.getElementById('item_type').value;
@@ -184,6 +201,9 @@ async function handleUnlockVault(e) {
 
     try {
         derivedMasterKey = await VaultCrypto.deriveMasterKey(masterPassword, activeSalt);
+        activeMasterPassword = masterPassword;
+        derivedKeysBySalt.clear();
+        derivedKeysBySalt.set(activeSalt, derivedMasterKey);
 
         if (rawVaultItems.length > 0) {
             try {
@@ -191,6 +211,8 @@ async function handleUnlockVault(e) {
             } catch (err) {
                 alert("Entschlüsselung fehlgeschlagen! Das Master-Passwort ist möglicherweise falsch.");
                 derivedMasterKey = null;
+                activeMasterPassword = null;
+                derivedKeysBySalt.clear();
                 return;
             }
         }
@@ -207,6 +229,8 @@ async function handleUnlockVault(e) {
 
 function lockVault() {
     derivedMasterKey = null;
+    activeMasterPassword = null;
+    derivedKeysBySalt.clear();
     document.getElementById('master-password-input').value = '';
     document.getElementById('master-password-card').classList.remove('d-none');
     document.getElementById('vault-content').classList.add('d-none');
@@ -226,9 +250,16 @@ async function renderVaultItems() {
     let keyfileCount = 0;
     let certCount = 0;
 
+    // Pre-derive any distinct item salts once before parallel decryption
+    const uniqueSalts = new Set(rawVaultItems.map(item => item.salt).filter(Boolean));
+    for (const salt of uniqueSalts) {
+        await getKeyForSalt(salt);
+    }
+
     const payloads = await Promise.all(rawVaultItems.map(async (item) => {
         try {
-            const jsonStr = await VaultCrypto.decryptVaultData(derivedMasterKey, item.encrypted_data, item.iv);
+            const itemKey = await getKeyForSalt(item.salt);
+            const jsonStr = await VaultCrypto.decryptVaultData(itemKey, item.encrypted_data, item.iv);
             return JSON.parse(jsonStr);
         } catch (e) {
             return { error: 'Entschlüsselungsfehler' };
@@ -415,12 +446,24 @@ function copyToClipboard(text) {
 
 function downloadFile(filename, content) {
     const element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
-    element.setAttribute('download', filename);
-    element.hidden = true;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+    if (typeof Blob !== 'undefined' && typeof URL !== 'undefined' && URL.createObjectURL) {
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        element.setAttribute('href', url);
+        element.setAttribute('download', filename);
+        element.hidden = true;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+    } else {
+        element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(content));
+        element.setAttribute('download', filename);
+        element.hidden = true;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+    }
 }
 
 function escapeHtml(str) {
@@ -445,6 +488,17 @@ function initVaultUI() {
         } catch (e) {
             console.error("Failed to parse vault data:", e);
         }
+    }
+
+    if (typeof document.querySelectorAll === 'function') {
+        const deleteForms = document.querySelectorAll('.delete-vault-form');
+        deleteForms.forEach((form) => {
+            form.addEventListener('submit', function(e) {
+                if (!confirm('Tresor wirklich löschen? Alle Einträge darin gehen verloren!')) {
+                    e.preventDefault();
+                }
+            });
+        });
     }
 
     const lockBtn = document.getElementById('lock-vault-btn');

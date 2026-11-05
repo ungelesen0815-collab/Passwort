@@ -31,6 +31,11 @@ class RegistrationService {
             $stmt = $this->pdo->prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)');
             $stmt->execute([$username, $hashedPassword, $role]);
 
+            $cacheFile = __DIR__ . '/cache/admin_user_count.cache';
+            if (file_exists($cacheFile)) {
+                @unlink($cacheFile);
+            }
+
             return ['success' => true, 'error' => ''];
         } catch (\PDOException $e) {
             if ($e->getCode() == 23000) { // Integrity constraint violation

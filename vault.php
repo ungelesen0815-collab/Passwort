@@ -49,85 +49,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($csrfError !== null) {
         $error = $sendResponse(true, 'Ungültiger CSRF-Token.', 400);
     } else {
-        if ($action === 'create_vault') {
-            $vaultName = trim($_POST['vault_name'] ?? '');
-            if (empty($vaultName)) {
-                $error = $sendResponse(true, 'Tresorname darf nicht leer sein.', 400);
-            } else {
-                $stmt = $pdo->prepare("INSERT INTO vaults (user_id, name) VALUES (?, ?)");
-                $stmt->execute([$userId, $vaultName]);
-                $message = $sendResponse(false, 'Tresor erfolgreich erstellt.');
+        try {
+            if ($action === 'create_vault') {
+                $vaultName = trim($_POST['vault_name'] ?? '');
+                if (empty($vaultName)) {
+                    $error = $sendResponse(true, 'Tresorname darf nicht leer sein.', 400);
+                } elseif (strlen($vaultName) > 255) {
+                    $error = $sendResponse(true, 'Tresorname darf maximal 255 Zeichen lang sein.', 400);
+                } else {
+                    $stmt = $pdo->prepare("INSERT INTO vaults (user_id, name) VALUES (?, ?)");
+                    $stmt->execute([$userId, $vaultName]);
+                    $message = $sendResponse(false, 'Tresor erfolgreich erstellt.');
+                }
+            } elseif ($action === 'delete_vault') {
+                $vaultIdToDelete = (int)($_POST['vault_id'] ?? 0);
+                if ($vaultIdToDelete <= 0) {
+                    $error = $sendResponse(true, 'Ungültige Tresor-ID.', 400);
+                } else {
+                    $stmt = $pdo->prepare("DELETE FROM vaults WHERE id = ? AND user_id = ?");
+                    $stmt->execute([$vaultIdToDelete, $userId]);
+                    $message = $sendResponse(false, 'Tresor gelöscht.');
+                }
+            } elseif ($action === 'add') {
+                $itemType = $_POST['item_type'] ?? '';
+                $title = trim($_POST['title'] ?? '');
+                $encryptedData = $_POST['encrypted_data'] ?? '';
+                $iv = $_POST['iv'] ?? '';
+                $salt = $_POST['salt'] ?? '';
+                $vaultId = (int)($_POST['vault_id'] ?? 0);
+
+                $allowedTypes = ['password', 'keyfile', 'certificate'];
+
+                // Check if vault belongs to user
+                $stmt = $pdo->prepare("SELECT id FROM vaults WHERE id = ? AND user_id = ?");
+                $stmt->execute([$vaultId, $userId]);
+                $validVault = $stmt->fetch();
+
+                if (!$validVault || !in_array($itemType, $allowedTypes, true) || empty($title) || strlen($title) > 255 || empty($encryptedData) || empty($iv) || strlen($iv) > 255 || empty($salt) || strlen($salt) > 255) {
+                    $error = $sendResponse(true, 'Fehlende oder ungültige Felder.', 400);
+                } else {
+                    $stmt = $pdo->prepare("INSERT INTO vault_items (user_id, vault_id, item_type, title, encrypted_data, iv, salt) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$userId, $vaultId, $itemType, $title, $encryptedData, $iv, $salt]);
+                    $newId = $pdo->lastInsertId();
+
+                    $message = $sendResponse(false, 'Eintrag erfolgreich gespeichert.', 200, ['id' => $newId]);
+                }
+            } elseif ($action === 'delete') {
+                $itemId = (int)($_POST['item_id'] ?? 0);
+                $vaultId = (int)($_POST['vault_id'] ?? 0);
+
+                if ($itemId <= 0 || $vaultId <= 0) {
+                    $error = $sendResponse(true, 'Ungültige Bezeichner-ID.', 400);
+                } else {
+                    $stmt = $pdo->prepare("DELETE FROM vault_items WHERE id = ? AND user_id = ? AND vault_id = ?");
+                    $stmt->execute([$itemId, $userId, $vaultId]);
+
+                    $message = $sendResponse(false, 'Eintrag gelöscht.');
+                }
             }
-        } elseif ($action === 'delete_vault') {
-            $vaultIdToDelete = (int)($_POST['vault_id'] ?? 0);
-            if ($vaultIdToDelete <= 0) {
-                $error = $sendResponse(true, 'Ungültige Tresor-ID.', 400);
-            } else {
-                $stmt = $pdo->prepare("DELETE FROM vaults WHERE id = ? AND user_id = ?");
-                $stmt->execute([$vaultIdToDelete, $userId]);
-                $message = $sendResponse(false, 'Tresor gelöscht.');
-            }
-        } elseif ($action === 'add') {
-            $itemType = $_POST['item_type'] ?? '';
-            $title = trim($_POST['title'] ?? '');
-            $encryptedData = $_POST['encrypted_data'] ?? '';
-            $iv = $_POST['iv'] ?? '';
-            $salt = $_POST['salt'] ?? '';
-            $vaultId = (int)($_POST['vault_id'] ?? 0);
-
-            $allowedTypes = ['password', 'keyfile', 'certificate'];
-
-            // Check if vault belongs to user
-            $stmt = $pdo->prepare("SELECT id FROM vaults WHERE id = ? AND user_id = ?");
-            $stmt->execute([$vaultId, $userId]);
-            $validVault = $stmt->fetch();
-
-            if (!$validVault || !in_array($itemType, $allowedTypes, true) || empty($title) || empty($encryptedData) || empty($iv) || empty($salt)) {
-                $error = $sendResponse(true, 'Fehlende oder ungültige Felder.', 400);
-            } else {
-                $stmt = $pdo->prepare("INSERT INTO vault_items (user_id, vault_id, item_type, title, encrypted_data, iv, salt) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$userId, $vaultId, $itemType, $title, $encryptedData, $iv, $salt]);
-                $newId = $pdo->lastInsertId();
-
-                $message = $sendResponse(false, 'Eintrag erfolgreich gespeichert.', 200, ['id' => $newId]);
-            }
-        } elseif ($action === 'delete') {
-            $itemId = (int)($_POST['item_id'] ?? 0);
-            $vaultId = (int)($_POST['vault_id'] ?? 0);
-
-            if ($itemId <= 0 || $vaultId <= 0) {
-                $error = $sendResponse(true, 'Ungültige Bezeichner-ID.', 400);
-            } else {
-                $stmt = $pdo->prepare("DELETE FROM vault_items WHERE id = ? AND user_id = ? AND vault_id = ?");
-                $stmt->execute([$itemId, $userId, $vaultId]);
-
-                $message = $sendResponse(false, 'Eintrag gelöscht.');
-            }
+        } catch (\PDOException $e) {
+            error_log("Database error in vault.php: " . $e->getMessage());
+            $error = $sendResponse(true, 'Ein Datenbankfehler ist aufgetreten.', 500);
         }
     }
 }
 
-if ($currentVaultId) {
-    // Verify vault ownership
-    $stmt = $pdo->prepare("SELECT name FROM vaults WHERE id = ? AND user_id = ?");
-    $stmt->execute([$currentVaultId, $userId]);
-    $vault = $stmt->fetch(PDO::FETCH_ASSOC);
+try {
+    if ($currentVaultId) {
+        // Verify vault ownership
+        $stmt = $pdo->prepare("SELECT name FROM vaults WHERE id = ? AND user_id = ?");
+        $stmt->execute([$currentVaultId, $userId]);
+        $vault = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$vault) {
-        header('Location: vault.php');
-        exit();
+        if (!$vault) {
+            header('Location: vault.php');
+            exit();
+        }
+
+        $pageTitle = 'Tresor: ' . htmlspecialchars($vault['name']);
+        // Fetch vault items for current user and specific vault
+        $stmt = $pdo->prepare("SELECT id, item_type, title, encrypted_data, iv, salt, created_at FROM vault_items WHERE user_id = ? AND vault_id = ? ORDER BY created_at DESC");
+        $stmt->execute([$userId, $currentVaultId]);
+        $vaultItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $pageTitle = 'Meine Tresore';
+        $stmt = $pdo->prepare("SELECT * FROM vaults WHERE user_id = ? ORDER BY created_at DESC");
+        $stmt->execute([$userId]);
+        $userVaults = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-
-    $pageTitle = 'Tresor: ' . htmlspecialchars($vault['name']);
-    // Fetch vault items for current user and specific vault
-    $stmt = $pdo->prepare("SELECT id, item_type, title, encrypted_data, iv, salt, created_at FROM vault_items WHERE user_id = ? AND vault_id = ? ORDER BY created_at DESC");
-    $stmt->execute([$userId, $currentVaultId]);
-    $vaultItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} else {
-    $pageTitle = 'Meine Tresore';
-    $stmt = $pdo->prepare("SELECT * FROM vaults WHERE user_id = ? ORDER BY created_at DESC");
-    $stmt->execute([$userId]);
-    $userVaults = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (\PDOException $e) {
+    error_log("Database error in vault.php (fetch): " . $e->getMessage());
+    $error = 'Ein Datenbankfehler ist aufgetreten.';
 }
 
 require_once 'header.php';
@@ -163,7 +175,7 @@ require_once 'navbar.php';
                             <a href="vault.php?id=<?= $v['id'] ?>" class="text-decoration-none h5 mb-0 flex-grow-1">
                                 <i class="bi bi-shield-lock me-2"></i><?= htmlspecialchars($v['name']) ?>
                             </a>
-                            <form method="POST" action="vault.php" class="ms-3" onsubmit="return confirm('Tresor wirklich löschen? Alle Einträge darin gehen verloren!');">
+                            <form method="POST" action="vault.php" class="ms-3 delete-vault-form">
                                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                                 <input type="hidden" name="action" value="delete_vault">
                                 <input type="hidden" name="vault_id" value="<?= $v['id'] ?>">
@@ -382,7 +394,7 @@ require_once 'navbar.php';
 </div>
 
 <div id="vault-data" data-json="<?= htmlspecialchars(json_encode(['csrfToken' => $_SESSION['csrf_token'] ?? '', 'vaultId' => $currentVaultId, 'items' => $vaultItems], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8') ?>" class="d-none"></div>
-<script src="vault.js"></script>
 <?php endif; ?>
+<script src="vault.js"></script>
 
 <?php require_once 'footer.php'; ?>

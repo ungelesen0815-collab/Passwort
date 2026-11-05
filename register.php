@@ -2,6 +2,7 @@
 require_once __DIR__ . '/session.php';
 require_once 'db.php';
 require_once 'csrf.php';
+require_once 'auth_utils.php';
 require_once 'RegistrationService.php';
 
 $error = '';
@@ -10,17 +11,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $error = validate_csrf_token($_POST['csrf_token'] ?? null) ?? '';
 
     if (!$error) {
-        $username = trim((string)($_POST['username'] ?? ''));
-    $password = (string)($_POST['password'] ?? '');
+        $ip_address = 'reg:' . get_client_ip();
+        $current_time = time();
+        $rateLimited = false;
 
-        $registrationService = new RegistrationService($pdo);
-        $result = $registrationService->register($username, $password);
+        try {
+            $rateLimited = is_rate_limited($pdo, [$ip_address], $current_time);
+        } catch (\Throwable $e) {
+            $rateLimited = false;
+        }
 
-        if ($result['success']) {
-            header('Location: login.php');
-            exit;
+        if ($rateLimited) {
+            $error = 'Too many registration attempts. Please try again later.';
         } else {
-            $error = $result['error'];
+            $username = trim((string)($_POST['username'] ?? ''));
+            $password = (string)($_POST['password'] ?? '');
+
+            $registrationService = new RegistrationService($pdo);
+            $result = $registrationService->register($username, $password);
+
+            if ($result['success']) {
+                header('Location: login.php');
+                exit;
+            } else {
+                try {
+                    increment_login_attempts($pdo, $ip_address, $current_time);
+                } catch (\Throwable $e) {
+                    // Ignore rate-limit logging errors
+                }
+                $error = $result['error'];
+            }
         }
     }
 }
