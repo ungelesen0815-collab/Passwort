@@ -165,7 +165,7 @@ try {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-    echo "Migration completed successfully: 'users', 'login_attempts', 'vaults', 'vault_items', 'crypt_shares', and 'secure_notes' tables are ready.\n";
+    echo "Migration completed successfully: 'users', 'login_attempts', 'vaults', 'vault_items', and 'crypt_shares' tables are ready.\n";
 } catch (\PDOException $e) {
     echo "Migration failed: " . $e->getMessage() . "\n";
     exit(1);

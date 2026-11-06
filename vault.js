@@ -222,8 +222,48 @@ async function handleUnlockVault(e) {
         document.getElementById('lock-vault-btn').classList.remove('d-none');
 
         await renderVaultItems();
+        applyPendingVaultEntryIfPresent();
     } catch (err) {
         alert("Fehler beim Entschlüsseln: " + err.message);
+    }
+}
+
+function applyPendingVaultEntryIfPresent() {
+    if (typeof sessionStorage === 'undefined') return;
+    const rawPending = sessionStorage.getItem('pendingVaultEntry');
+    if (!rawPending) return;
+
+    try {
+        const pending = JSON.parse(rawPending);
+        sessionStorage.removeItem('pendingVaultEntry');
+
+        const banner = document.getElementById('pending-vault-entry-banner');
+        if (banner) banner.classList.add('d-none');
+
+        const typeSelect = document.getElementById('item_type');
+        if (typeSelect) {
+            typeSelect.value = 'password';
+            toggleFormFields();
+        }
+
+        const titleInput = document.getElementById('item_title');
+        const userInput = document.getElementById('pwd_username');
+        const secretInput = document.getElementById('pwd_secret');
+
+        if (titleInput) titleInput.value = pending.title || '';
+        if (userInput) userInput.value = pending.username || '';
+        if (secretInput) {
+            secretInput.value = pending.password || '';
+            secretInput.type = 'text';
+        }
+
+        const modalEl = document.getElementById('addModal');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    } catch (e) {
+        console.error('Failed to apply pending vault entry:', e);
     }
 }
 
@@ -499,6 +539,11 @@ function initVaultUI() {
                 }
             });
         });
+    }
+
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('pendingVaultEntry')) {
+        const banner = document.getElementById('pending-vault-entry-banner');
+        if (banner) banner.classList.remove('d-none');
     }
 
     const lockBtn = document.getElementById('lock-vault-btn');
