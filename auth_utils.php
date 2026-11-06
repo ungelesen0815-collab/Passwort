@@ -107,29 +107,78 @@ function ensure_user_feature_columns(PDO $pdo): void {
         }
 
         $existingMap = array_flip($existing);
-        $addedAny = false;
+        $addedBaseFeatures = false;
+        $addedSecureNotes = false;
 
         if (!isset($existingMap['can_use_password_generator'])) {
             $pdo->exec("ALTER TABLE users ADD COLUMN can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1");
-            $addedAny = true;
+            $addedBaseFeatures = true;
         }
         if (!isset($existingMap['can_use_vault'])) {
             $pdo->exec("ALTER TABLE users ADD COLUMN can_use_vault TINYINT(1) NOT NULL DEFAULT 0");
-            $addedAny = true;
+            $addedBaseFeatures = true;
         }
         if (!isset($existingMap['can_use_crypt_share'])) {
             $pdo->exec("ALTER TABLE users ADD COLUMN can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0");
-            $addedAny = true;
+            $addedBaseFeatures = true;
+        }
+        if (!isset($existingMap['can_use_secure_notes'])) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN can_use_secure_notes TINYINT(1) NOT NULL DEFAULT 0");
+            $addedSecureNotes = true;
         }
 
-        if ($addedAny) {
+        if ($addedBaseFeatures) {
             // Existing users retain all features
-            $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1");
+            $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1, can_use_secure_notes = 1");
+        } elseif ($addedSecureNotes) {
+            // Existing users get the newly added Secure Notes feature enabled
+            $pdo->exec("UPDATE users SET can_use_secure_notes = 1");
         }
 
         $checkedPdo = $pdo;
     } catch (\Throwable $e) {
         // Ignore if table does not exist yet or cannot be altered
+    }
+}
+
+function ensure_secure_notes_table(PDO $pdo): void {
+    static $checkedNotesPdo = null;
+    if ($checkedNotesPdo === $pdo) {
+        return;
+    }
+
+    try {
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'sqlite') {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS secure_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                note_type VARCHAR(50) NOT NULL DEFAULT 'note',
+                title VARCHAR(255) NOT NULL,
+                encrypted_data TEXT NOT NULL,
+                iv VARCHAR(255) NOT NULL,
+                salt VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )");
+        } else {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS secure_notes (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                note_type VARCHAR(50) NOT NULL DEFAULT 'note',
+                title VARCHAR(255) NOT NULL,
+                encrypted_data LONGTEXT NOT NULL,
+                iv VARCHAR(255) NOT NULL,
+                salt VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+        $checkedNotesPdo = $pdo;
+    } catch (\Throwable $e) {
+        // Ignore if table cannot be created automatically
     }
 }
 
@@ -139,6 +188,7 @@ function extract_permissions_from_user_row(array $user): array {
             'password_generator' => true,
             'vault' => true,
             'crypt_share' => true,
+            'secure_notes' => true,
         ];
     }
 
@@ -146,6 +196,7 @@ function extract_permissions_from_user_row(array $user): array {
         'password_generator' => array_key_exists('can_use_password_generator', $user) ? !empty($user['can_use_password_generator']) : true,
         'vault' => array_key_exists('can_use_vault', $user) ? !empty($user['can_use_vault']) : true,
         'crypt_share' => array_key_exists('can_use_crypt_share', $user) ? !empty($user['can_use_crypt_share']) : true,
+        'secure_notes' => array_key_exists('can_use_secure_notes', $user) ? !empty($user['can_use_secure_notes']) : true,
     ];
 }
 
@@ -155,6 +206,7 @@ function get_user_permissions(PDO $pdo, int|string $userId, string $role = 'user
             'password_generator' => true,
             'vault' => true,
             'crypt_share' => true,
+            'secure_notes' => true,
         ];
         $_SESSION['permissions'] = $perms;
         return $perms;
@@ -176,6 +228,7 @@ function get_user_permissions(PDO $pdo, int|string $userId, string $role = 'user
         'password_generator' => true,
         'vault' => true,
         'crypt_share' => true,
+        'secure_notes' => true,
     ];
 }
 
