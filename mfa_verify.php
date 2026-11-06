@@ -54,6 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
+            if (function_exists('extract_permissions_from_user_row')) {
+                $_SESSION['permissions'] = extract_permissions_from_user_row($user);
+            }
             unset($_SESSION['pending_user_id']);
             header('Location: index.php');
             exit;

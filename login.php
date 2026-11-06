@@ -61,6 +61,9 @@ function handle_authenticated_session(array $user, ?callable $redirectHandler = 
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['role'] = $user['role'];
+        if (function_exists('extract_permissions_from_user_row')) {
+            $_SESSION['permissions'] = extract_permissions_from_user_row($user);
+        }
         $location = 'index.php';
     }
 

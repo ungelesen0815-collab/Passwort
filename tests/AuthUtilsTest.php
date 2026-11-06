@@ -211,4 +211,41 @@ class AuthUtilsTest extends TestCase
         $this->assertEquals(1, $userAttempts1);
         $this->assertEquals(2, $ipAttempts2);
     }
+
+    public function testExistingUsersKeepAllFeaturesAndNewUsersOnlyGetPasswordGenerator(): void
+    {
+        $this->pdo->exec("CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username VARCHAR(255) NOT NULL,
+            role VARCHAR(50) NOT NULL DEFAULT 'user'
+        )");
+        $this->pdo->exec("INSERT INTO users (id, username, role) VALUES (1, 'existing_user', 'user')");
+
+        // Run automatic column migration
+        ensure_user_feature_columns($this->pdo);
+
+        // Existing user keeps all features (1, 1, 1)
+        $existingPerms = get_user_permissions($this->pdo, 1, 'user');
+        $this->assertTrue($existingPerms['password_generator']);
+        $this->assertTrue($existingPerms['vault']);
+        $this->assertTrue($existingPerms['crypt_share']);
+
+        // New user inserted after migration only gets Password Generator (1, 0, 0)
+        $this->pdo->exec("INSERT INTO users (id, username, role) VALUES (2, 'new_user', 'user')");
+        $newPerms = get_user_permissions($this->pdo, 2, 'user');
+        $this->assertTrue($newPerms['password_generator']);
+        $this->assertFalse($newPerms['vault']);
+        $this->assertFalse($newPerms['crypt_share']);
+
+        // Admin can toggle features for the user
+        $stmt = $this->pdo->prepare("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 0 WHERE id = ?");
+        $stmt->execute([2]);
+
+        $this->assertTrue(user_has_feature($this->pdo, 2, 'password_generator', 'user'));
+        $this->assertTrue(user_has_feature($this->pdo, 2, 'vault', 'user'));
+        $this->assertFalse(user_has_feature($this->pdo, 2, 'crypt_share', 'user'));
+
+        // Admin role always has all features
+        $this->assertTrue(user_has_feature($this->pdo, 2, 'crypt_share', 'admin'));
+    }
 }

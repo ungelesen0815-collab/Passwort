@@ -2,6 +2,7 @@
 require_once __DIR__ . '/session.php';
 require_once 'csrf.php';
 require_once 'db.php';
+require_once 'auth_utils.php';
 
 if (!isset($_SESSION['user_id'])) {
     if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
@@ -15,6 +16,16 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $userId = $_SESSION['user_id'];
+if (!user_has_feature($pdo, $userId, 'vault', $_SESSION['role'] ?? 'user')) {
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
+        header('Content-Type: application/json');
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Keine Berechtigung für den Tresor.']);
+        exit();
+    }
+    header('Location: index.php');
+    exit();
+}
 $message = '';
 $error = '';
 $currentVaultId = isset($_GET['id']) ? (int)$_GET['id'] : null;

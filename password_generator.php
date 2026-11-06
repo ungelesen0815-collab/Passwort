@@ -1,10 +1,26 @@
 <?php
 require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/PasswordGenerator.php';
+require_once __DIR__ . '/auth_utils.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
+}
+
+try {
+    require_once __DIR__ . '/db.php';
+    if (isset($pdo) && $pdo instanceof PDO) {
+        if (!user_has_feature($pdo, $_SESSION['user_id'], 'password_generator', $_SESSION['role'] ?? 'user')) {
+            header('Location: index.php');
+            exit;
+        }
+    }
+} catch (\Throwable $e) {
+    if (isset($_SESSION['permissions']['password_generator']) && !$_SESSION['permissions']['password_generator']) {
+        header('Location: index.php');
+        exit;
+    }
 }
 
 $generator = new PasswordGenerator();

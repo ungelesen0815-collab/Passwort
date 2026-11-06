@@ -1,6 +1,18 @@
 <?php
 $username = $_SESSION['username'] ?? '';
 $role = $_SESSION['role'] ?? ($user['role'] ?? '');
+$navPermissions = $_SESSION['permissions'] ?? [
+    'password_generator' => true,
+    'vault' => true,
+    'crypt_share' => true,
+];
+if ($role === 'admin') {
+    $navPermissions = [
+        'password_generator' => true,
+        'vault' => true,
+        'crypt_share' => true,
+    ];
+}
 ?>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
@@ -15,15 +27,21 @@ $role = $_SESSION['role'] ?? ($user['role'] ?? '');
                     <span class="nav-link text-white">Hello, <?= htmlspecialchars($username) ?> (<?= htmlspecialchars($role) ?>)</span>
                 </li>
                 <?php endif; ?>
+                <?php if (!empty($navPermissions['vault'])): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="vault.php">Tresor / Vault</a>
                 </li>
+                <?php endif; ?>
+                <?php if (!empty($navPermissions['password_generator'])): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="password_generator.php">Passwort-Generator</a>
                 </li>
+                <?php endif; ?>
+                <?php if (!empty($navPermissions['crypt_share'])): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="crypt_share.php">Crypt Share</a>
                 </li>
+                <?php endif; ?>
                 <li class="nav-item">
                     <a class="nav-link" href="profile.php">Profile</a>
                 </li>

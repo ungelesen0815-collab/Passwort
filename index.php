@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/session.php';
 require_once 'csrf.php';
+require_once 'auth_utils.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -9,6 +10,21 @@ if (!isset($_SESSION['user_id'])) {
 
 $username = $_SESSION['username'];
 $role = $_SESSION['role'];
+
+try {
+    require_once 'db.php';
+    if (isset($pdo) && $pdo instanceof PDO) {
+        $permissions = get_user_permissions($pdo, $_SESSION['user_id'], $role);
+    }
+} catch (\Throwable $e) {
+    // Fallback to session permissions if DB is unavailable
+}
+
+$permissions = $permissions ?? ($_SESSION['permissions'] ?? [
+    'password_generator' => true,
+    'vault' => true,
+    'crypt_share' => true,
+]);
 
 $pageTitle = 'Dashboard';
 require_once 'header.php';
@@ -21,6 +37,7 @@ require_once 'header.php';
             <p class="lead">You are successfully logged in as a <strong><?= htmlspecialchars($role) ?></strong>.</p>
 
             <div class="row mt-4">
+                <?php if (!empty($permissions['vault'])): ?>
                 <div class="col-md-6 col-lg-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
@@ -30,6 +47,8 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
+                <?php if (!empty($permissions['password_generator'])): ?>
                 <div class="col-md-6 col-lg-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
@@ -39,6 +58,7 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
                 <div class="col-md-6 col-lg-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
@@ -57,6 +77,7 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
+                <?php if (!empty($permissions['crypt_share'])): ?>
                 <div class="col-md-6 col-lg-3 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
@@ -66,6 +87,7 @@ require_once 'header.php';
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/session.php';
 require_once 'db.php';
 require_once 'csrf.php';
+require_once 'auth_utils.php';
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header('Location: index.php');
@@ -30,6 +31,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['promote_id'])) {
         } catch (\PDOException $e) {
             error_log("Database error occurred while promoting user: " . $e->getMessage());
             $message = "Database error occurred while promoting user.";
+        }
+    } catch (Exception $e) {
+        $message = 'Invalid CSRF token. Please refresh the page and try again.';
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_permissions_user_id'])) {
+    try {
+        verify_csrf_token($_POST['csrf_token'] ?? null);
+
+        $targetUserId = (int)$_POST['update_permissions_user_id'];
+        $canPasswordGen = isset($_POST['can_use_password_generator']) ? 1 : 0;
+        $canVault = isset($_POST['can_use_vault']) ? 1 : 0;
+        $canCryptShare = isset($_POST['can_use_crypt_share']) ? 1 : 0;
+
+        try {
+            ensure_user_feature_columns($pdo);
+            $stmt = $pdo->prepare("UPDATE users SET can_use_password_generator = ?, can_use_vault = ?, can_use_crypt_share = ? WHERE id = ? AND role != 'admin'");
+            $stmt->execute([$canPasswordGen, $canVault, $canCryptShare, $targetUserId]);
+            $adminId = $_SESSION['user_id'];
+            error_log("AUDIT: Admin ID {$adminId} updated feature permissions for User ID {$targetUserId} (pg={$canPasswordGen}, vault={$canVault}, share={$canCryptShare}).");
+            $message = "Funktionen für Benutzer erfolgreich aktualisiert.";
+        } catch (\PDOException $e) {
+            error_log("Database error occurred while updating user permissions: " . $e->getMessage());
+            $error = "Datenbankfehler beim Speichern der Berechtigungen.";
         }
     } catch (Exception $e) {
         $message = 'Invalid CSRF token. Please refresh the page and try again.';
@@ -89,7 +113,11 @@ try {
     }
     $offset = ($page - 1) * $perPage;
 
-    $stmt = $pdo->prepare("SELECT id, username, role, mfa_enabled FROM users ORDER BY id ASC LIMIT :limit OFFSET :offset");
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        ensure_user_feature_columns($pdo);
+    }
+
+    $stmt = $pdo->prepare("SELECT * FROM users ORDER BY id ASC LIMIT :limit OFFSET :offset");
     $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
     $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
@@ -115,23 +143,50 @@ require_once 'header.php';
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
 
-    <table class="table table-bordered table-striped bg-white">
+    <table class="table table-bordered table-striped bg-white align-middle">
         <thead>
             <tr>
                 <th>ID</th>
                 <th>Username</th>
                 <th>Role</th>
                 <th>MFA Enabled</th>
+                <th>Funktionen</th>
                 <th>Action</th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ($users as $u): ?>
+            <?php $uPerms = extract_permissions_from_user_row($u); ?>
             <tr>
                 <td><?= htmlspecialchars($u['id']) ?></td>
                 <td><?= htmlspecialchars($u['username']) ?></td>
                 <td><?= htmlspecialchars($u['role']) ?></td>
                 <td><?= $u['mfa_enabled'] ? 'Yes' : 'No' ?></td>
+                <td>
+                    <?php if ($u['role'] !== 'admin'): ?>
+                    <form method="post" action="admin.php?page=<?= (int)$page ?>" class="d-flex flex-wrap align-items-center gap-3 m-0">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                        <input type="hidden" name="update_permissions_user_id" value="<?= (int)$u['id'] ?>">
+                        <div class="form-check form-check-inline m-0">
+                            <input class="form-check-input" type="checkbox" id="pg_<?= (int)$u['id'] ?>" name="can_use_password_generator" value="1" <?= $uPerms['password_generator'] ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="pg_<?= (int)$u['id'] ?>">Passwort-Generator</label>
+                        </div>
+                        <div class="form-check form-check-inline m-0">
+                            <input class="form-check-input" type="checkbox" id="vault_<?= (int)$u['id'] ?>" name="can_use_vault" value="1" <?= $uPerms['vault'] ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="vault_<?= (int)$u['id'] ?>">Tresor</label>
+                        </div>
+                        <div class="form-check form-check-inline m-0">
+                            <input class="form-check-input" type="checkbox" id="share_<?= (int)$u['id'] ?>" name="can_use_crypt_share" value="1" <?= $uPerms['crypt_share'] ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="share_<?= (int)$u['id'] ?>">Crypt Share</label>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
+                    </form>
+                    <?php else: ?>
+                        <span class="badge bg-info text-dark me-1">Passwort-Generator</span>
+                        <span class="badge bg-info text-dark me-1">Tresor</span>
+                        <span class="badge bg-info text-dark">Crypt Share</span>
+                    <?php endif; ?>
+                </td>
                 <td>
                     <?php if ($u['role'] !== 'admin'): ?>
                     <form method="post" action="admin.php" class="d-inline">

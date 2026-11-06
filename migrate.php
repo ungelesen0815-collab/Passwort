@@ -15,19 +15,29 @@ try {
         mfa_enabled TINYINT(1) DEFAULT 0,
         full_name VARCHAR(255) DEFAULT NULL,
         personal_details TEXT DEFAULT NULL,
-        profile_picture VARCHAR(255) DEFAULT NULL
+        profile_picture VARCHAR(255) DEFAULT NULL,
+        can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1,
+        can_use_vault TINYINT(1) NOT NULL DEFAULT 0,
+        can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
     // Add columns if they do not exist for existing users tables
     $columns = [
         "full_name VARCHAR(255) DEFAULT NULL",
         "personal_details TEXT DEFAULT NULL",
-        "profile_picture VARCHAR(255) DEFAULT NULL"
+        "profile_picture VARCHAR(255) DEFAULT NULL",
+        "can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1",
+        "can_use_vault TINYINT(1) NOT NULL DEFAULT 0",
+        "can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0"
     ];
 
     $stmt = $pdo->query("SHOW COLUMNS FROM users");
     $existingColumns = $stmt->fetchAll(PDO::FETCH_COLUMN);
     $existingColumnsMap = array_flip($existingColumns);
+
+    $hadFeatureColumns = isset($existingColumnsMap['can_use_password_generator'])
+        && isset($existingColumnsMap['can_use_vault'])
+        && isset($existingColumnsMap['can_use_crypt_share']);
 
     $missingColumns = [];
     foreach ($columns as $columnDef) {
@@ -39,6 +49,11 @@ try {
 
     if (!empty($missingColumns)) {
         $pdo->exec("ALTER TABLE users " . implode(', ', $missingColumns));
+    }
+
+    if (!$hadFeatureColumns) {
+        // Existing users keep all features when migrating
+        $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1");
     }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS login_attempts (
