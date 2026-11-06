@@ -8,6 +8,9 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+$canUseVault = true;
+$userVaults = [];
+
 try {
     require_once __DIR__ . '/db.php';
     if (isset($pdo) && $pdo instanceof PDO) {
@@ -15,12 +18,19 @@ try {
             header('Location: index.php');
             exit;
         }
+        $canUseVault = user_has_feature($pdo, $_SESSION['user_id'], 'vault', $_SESSION['role'] ?? 'user');
+        if ($canUseVault) {
+            $stmtVaults = $pdo->prepare("SELECT id, name FROM vaults WHERE user_id = ? ORDER BY created_at DESC");
+            $stmtVaults->execute([$_SESSION['user_id']]);
+            $userVaults = $stmtVaults->fetchAll(PDO::FETCH_ASSOC);
+        }
     }
 } catch (\Throwable $e) {
     if (isset($_SESSION['permissions']['password_generator']) && !$_SESSION['permissions']['password_generator']) {
         header('Location: index.php');
         exit;
     }
+    $canUseVault = !empty($_SESSION['permissions']['vault']);
 }
 
 $generator = new PasswordGenerator();
@@ -57,6 +67,43 @@ try {
     $error = $e->getMessage();
 }
 
+// Username / Email-Alias Generator parameters
+$usernameMode = isset($_REQUEST['username_mode']) && $_REQUEST['username_mode'] === 'alias' ? 'alias' : 'random';
+$usernameSeparator = isset($_REQUEST['username_separator']) && in_array($_REQUEST['username_separator'], ['-', '_', '.', ''], true)
+    ? (string)$_REQUEST['username_separator']
+    : '-';
+$isUsernameSubmit = isset($_REQUEST['username_mode']);
+$usernameIncludeNumber = isset($_REQUEST['username_numbers']) ? (bool)$_REQUEST['username_numbers'] : !$isUsernameSubmit;
+$usernameCapitalize = isset($_REQUEST['username_capitalize']) ? (bool)$_REQUEST['username_capitalize'] : false;
+$baseEmail = trim((string)($_REQUEST['base_email'] ?? ''));
+$aliasTag = trim((string)($_REQUEST['alias_tag'] ?? ''));
+
+$generatedUsername = '';
+$usernameError = '';
+
+try {
+    if ($usernameMode === 'alias' && $baseEmail === '') {
+        // Default to a random username until the user provides a base email
+        $generatedUsername = $generator->generateUsername([
+            'mode' => 'random',
+            'separator' => $usernameSeparator,
+            'include_number' => $usernameIncludeNumber,
+            'capitalize' => $usernameCapitalize,
+        ]);
+    } else {
+        $generatedUsername = $generator->generateUsername([
+            'mode' => $usernameMode,
+            'separator' => $usernameSeparator,
+            'include_number' => $usernameIncludeNumber,
+            'capitalize' => $usernameCapitalize,
+            'base_email' => $baseEmail,
+            'alias_tag' => $aliasTag,
+        ]);
+    }
+} catch (\InvalidArgumentException $e) {
+    $usernameError = $e->getMessage();
+}
+
 $pageTitle = 'Passwort-Generator';
 require_once 'header.php';
 ?>
@@ -83,6 +130,9 @@ require_once 'header.php';
                                 <input type="text" id="passwordResult" class="form-control font-monospace fs-5" value="<?= htmlspecialchars($generatedPassword) ?>" readonly>
                                 <button class="btn btn-outline-secondary" type="button" id="copyBtn">📋 Kopieren</button>
                                 <button class="btn btn-outline-primary" type="button" id="regenerateBtn">🔄 Neu generieren</button>
+                                <?php if ($canUseVault): ?>
+                                    <button class="btn btn-success" type="button" id="saveToVaultBtn" data-bs-toggle="modal" data-bs-target="#saveToVaultModal">🔐 Direkt im Tresor speichern</button>
+                                <?php endif; ?>
                             </div>
                             <small id="copyFeedback" class="form-text text-success d-none">In die Zwischenablage kopiert!</small>
                         </div>
@@ -147,9 +197,147 @@ require_once 'header.php';
                     </form>
                 </div>
             </div>
+
+            <!-- Username & Email Alias Generator Card -->
+            <div class="card shadow-sm mt-4 mb-5">
+                <div class="card-header bg-dark text-white">
+                    <h4 class="mb-0">👤 Benutzername- &amp; E-Mail-Alias-Generator</h4>
+                </div>
+                <div class="card-body">
+                    <?php if ($usernameError): ?>
+                        <div class="alert alert-danger" role="alert">
+                            <?= htmlspecialchars($usernameError) ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Generierter Benutzername / Alias:</label>
+                        <div class="input-group">
+                            <input type="text" id="usernameResult" class="form-control font-monospace fs-5" value="<?= htmlspecialchars($generatedUsername) ?>" readonly>
+                            <button class="btn btn-outline-secondary" type="button" id="copyUsernameBtn">📋 Kopieren</button>
+                            <button class="btn btn-outline-primary" type="button" id="regenerateUsernameBtn">🔄 Neu generieren</button>
+                            <?php if ($canUseVault): ?>
+                                <button class="btn btn-success" type="button" id="saveUsernameAndPasswordToVaultBtn" data-bs-toggle="modal" data-bs-target="#saveToVaultModal">🔐 Im Tresor speichern</button>
+                            <?php endif; ?>
+                        </div>
+                        <small id="copyUsernameFeedback" class="form-text text-success d-none">Benutzername / Alias in die Zwischenablage kopiert!</small>
+                    </div>
+
+                    <form id="usernameGeneratorForm" method="get" action="password_generator.php">
+                        <input type="hidden" name="length" value="<?= htmlspecialchars((string)$length) ?>">
+                        <?php if ($useUppercase): ?><input type="hidden" name="uppercase" value="1"><?php endif; ?>
+                        <?php if ($useLowercase): ?><input type="hidden" name="lowercase" value="1"><?php endif; ?>
+                        <?php if ($useNumbers): ?><input type="hidden" name="numbers" value="1"><?php endif; ?>
+                        <?php if ($useSpecial): ?><input type="hidden" name="special" value="1"><?php endif; ?>
+                        <?php if ($specialCount !== null): ?><input type="hidden" name="special_count" value="<?= htmlspecialchars((string)$specialCount) ?>"><?php endif; ?>
+                        <?php if ($excludeAmbiguous): ?><input type="hidden" name="exclude_ambiguous" value="1"><?php endif; ?>
+
+                        <div class="mb-3">
+                            <label for="usernameMode" class="form-label fw-bold">Generator-Modus:</label>
+                            <select id="usernameMode" name="username_mode" class="form-select">
+                                <option value="random" <?= $usernameMode === 'random' ? 'selected' : '' ?>>🎲 Zufälliger Benutzername (z. B. silent-falcon-4821)</option>
+                                <option value="alias" <?= $usernameMode === 'alias' ? 'selected' : '' ?>>📧 E-Mail Plus-Addressing-Alias (z. B. name+shop-a8f3k2@domain.de)</option>
+                            </select>
+                        </div>
+
+                        <!-- Options for Random Username -->
+                        <div id="randomUsernameOptions" class="<?= $usernameMode === 'alias' ? 'd-none' : '' ?>">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-6">
+                                    <label for="usernameSeparator" class="form-label">Trennzeichen:</label>
+                                    <select id="usernameSeparator" name="username_separator" class="form-select">
+                                        <option value="-" <?= $usernameSeparator === '-' ? 'selected' : '' ?>>Bindestrich (-)</option>
+                                        <option value="_" <?= $usernameSeparator === '_' ? 'selected' : '' ?>>Unterstrich (_)</option>
+                                        <option value="." <?= $usernameSeparator === '.' ? 'selected' : '' ?>>Punkt (.)</option>
+                                        <option value="" <?= $usernameSeparator === '' ? 'selected' : '' ?>>Kein Trennzeichen</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-flex flex-column justify-content-end">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="usernameNumbers" name="username_numbers" value="1" <?= $usernameIncludeNumber ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="usernameNumbers">Zufallszahlen anhängen</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="usernameCapitalize" name="username_capitalize" value="1" <?= $usernameCapitalize ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="usernameCapitalize">Wörter großschreiben (PascalCase)</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Options for Email Alias -->
+                        <div id="emailAliasOptions" class="<?= $usernameMode === 'alias' ? '' : 'd-none' ?>">
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-7">
+                                    <label for="baseEmail" class="form-label">Basis-E-Mail-Adresse:</label>
+                                    <input type="email" id="baseEmail" name="base_email" class="form-control" placeholder="ihre.mail@beispiel.de" value="<?= htmlspecialchars($baseEmail) ?>">
+                                </div>
+                                <div class="col-md-5">
+                                    <label for="aliasTag" class="form-label">Dienst / Präfix (optional):</label>
+                                    <input type="text" id="aliasTag" name="alias_tag" class="form-control" placeholder="z. B. shop, github, newsletter" value="<?= htmlspecialchars($aliasTag) ?>">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-dark w-100">Benutzername / Alias Generieren</button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<?php if ($canUseVault): ?>
+<!-- Modal: Save Generated Credentials Directly to Vault -->
+<div class="modal fade" id="saveToVaultModal" tabindex="-1" aria-labelledby="saveToVaultModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="saveToVaultModalLabel">🔐 Direkt im Tresor speichern</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <form id="saveToVaultTransferForm">
+                <div class="modal-body">
+                    <p class="small text-muted">
+                        Das generierte Passwort und der Benutzername werden sicher im lokalen Browser-Speicher (ohne Übertragung in der URL) an das Tresor-Formular übergeben.
+                    </p>
+                    <div class="mb-3">
+                        <label for="transferVaultSelect" class="form-label">Ziel-Tresor auswählen</label>
+                        <?php if (!empty($userVaults)): ?>
+                            <select id="transferVaultSelect" class="form-select" required>
+                                <?php foreach ($userVaults as $uv): ?>
+                                    <option value="<?= (int)$uv['id'] ?>"><?= htmlspecialchars($uv['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php else: ?>
+                            <div class="alert alert-warning small mb-0">
+                                Sie haben noch keinen Tresor angelegt. Sie werden zur Tresor-Übersicht weitergeleitet, wo Sie einen Tresor erstellen können – die Daten bleiben vorgemerkt.
+                            </div>
+                            <input type="hidden" id="transferVaultSelect" value="">
+                        <?php endif; ?>
+                    </div>
+                    <div class="mb-3">
+                        <label for="transferTitle" class="form-label">Titel / Dienstname (optional)</label>
+                        <input type="text" id="transferTitle" class="form-control" placeholder="z. B. GitHub, Amazon, Firmen-Login">
+                    </div>
+                    <div class="mb-3">
+                        <label for="transferUsername" class="form-label">Benutzername / E-Mail-Alias</label>
+                        <input type="text" id="transferUsername" class="form-control font-monospace" value="<?= htmlspecialchars($generatedUsername) ?>">
+                    </div>
+                    <div class="mb-3">
+                        <label for="transferPassword" class="form-label">Passwort</label>
+                        <input type="text" id="transferPassword" class="form-control font-monospace" value="<?= htmlspecialchars($generatedPassword) ?>" readonly>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-success">Zum Tresor &amp; Übernehmen &rarr;</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <script src="password_generator.js"></script>
 

@@ -158,6 +158,9 @@ require_once 'navbar.php';
 ?>
 
 <div class="container mt-4">
+    <div id="pending-vault-entry-banner" class="alert alert-info d-none">
+        🔑 <strong>Vorgemerktes Passwort aus dem Generator:</strong> Bitte wählen bzw. entsperren Sie einen Tresor mit Ihrem Master-Passwort – das Formular öffnet sich danach automatisch mit den übernommenen Zugangsdaten.
+    </div>
     <?php if (!$currentVaultId): ?>
         <h2><i class="bi bi-safe"></i> Meine Tresore</h2>
 

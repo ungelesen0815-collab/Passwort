@@ -178,4 +178,45 @@ class PasswordGeneratorTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->generator->generate(16, $options);
     }
+
+    public function testGenerateRandomUsername(): void
+    {
+        $username = $this->generator->generateUsername([
+            'mode' => 'random',
+            'separator' => '-',
+            'include_number' => true,
+            'capitalize' => false,
+        ]);
+
+        $this::assertMatchesRegularExpression('/^[a-z]+-[a-z]+-[0-9]{3,4}$/', $username);
+    }
+
+    public function testGenerateCapitalizedUsernameWithoutNumber(): void
+    {
+        $username = $this->generator->generateUsername([
+            'mode' => 'random',
+            'separator' => '_',
+            'include_number' => false,
+            'capitalize' => true,
+        ]);
+
+        $this::assertMatchesRegularExpression('/^[A-Z][a-z]+_[A-Z][a-z]+$/', $username);
+    }
+
+    public function testGenerateEmailAlias(): void
+    {
+        $alias = $this->generator->generateUsername([
+            'mode' => 'alias',
+            'base_email' => 'max.mustermann@example.com',
+            'alias_tag' => 'GitHub',
+        ]);
+
+        $this::assertMatchesRegularExpression('/^max\.mustermann\+github-[a-z0-9]{6}@example\.com$/', $alias);
+    }
+
+    public function testGenerateEmailAliasThrowsOnInvalidEmail(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->generator->generateEmailAlias('not-an-email', 'shop');
+    }
 }

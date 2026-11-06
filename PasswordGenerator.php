@@ -12,6 +12,18 @@ class PasswordGenerator
     public const CHAR_SPECIAL   = '!@#$%^&*()_+-=[]{}|;:,.<>?';
     public const CHAR_AMBIGUOUS = '0O1lI';
 
+    public const USERNAME_ADJECTIVES = [
+        'silent', 'swift', 'cyber', 'lunar', 'solar', 'amber', 'crimson', 'cobalt',
+        'emerald', 'frosty', 'golden', 'hidden', 'iron', 'misty', 'neon', 'noble',
+        'quantum', 'rapid', 'shadow', 'silver', 'stellar', 'stormy', 'velvet', 'vivid'
+    ];
+
+    public const USERNAME_NOUNS = [
+        'falcon', 'phoenix', 'tiger', 'orca', 'wolf', 'lynx', 'raven', 'viper',
+        'comet', 'nebula', 'pulsar', 'vertex', 'cipher', 'vector', 'shield', 'anchor',
+        'beacon', 'forge', 'harbor', 'matrix', 'nexus', 'prism', 'quartz', 'zephyr'
+    ];
+
     /**
      * Generate a random password based on length and options.
      *
@@ -106,6 +118,82 @@ class PasswordGenerator
         }
 
         return implode('', $passwordChars);
+    }
+
+    /**
+     * Generate a random readable username or email plus-addressing alias.
+     *
+     * @param array $options
+     *   - 'mode' (string): 'random' (default) or 'alias'
+     *   - 'separator' (string): '-', '_', '.', or '' (default '-')
+     *   - 'include_number' (bool): Append a 3-4 digit random number (default true)
+     *   - 'capitalize' (bool): Capitalize words (default false)
+     *   - 'base_email' (string): Required when mode === 'alias'
+     *   - 'alias_tag' (string): Optional tag for plus-addressing (e.g. 'shop')
+     * @return string
+     * @throws InvalidArgumentException
+     */
+    public function generateUsername(array $options = []): string
+    {
+        $mode = $options['mode'] ?? 'random';
+
+        if ($mode === 'alias') {
+            $baseEmail = trim((string)($options['base_email'] ?? ''));
+            $aliasTag = trim((string)($options['alias_tag'] ?? ''));
+            return $this->generateEmailAlias($baseEmail, $aliasTag);
+        }
+
+        $separator = (string)($options['separator'] ?? '-');
+        if (!in_array($separator, ['-', '_', '.', ''], true)) {
+            $separator = '-';
+        }
+        $includeNumber = array_key_exists('include_number', $options) ? (bool)$options['include_number'] : true;
+        $capitalize = !empty($options['capitalize']);
+
+        $adj = self::USERNAME_ADJECTIVES[random_int(0, count(self::USERNAME_ADJECTIVES) - 1)];
+        $noun = self::USERNAME_NOUNS[random_int(0, count(self::USERNAME_NOUNS) - 1)];
+
+        if ($capitalize) {
+            $adj = ucfirst($adj);
+            $noun = ucfirst($noun);
+        }
+
+        $username = $adj . $separator . $noun;
+        if ($includeNumber) {
+            $num = (string)random_int(100, 9999);
+            $username .= $separator . $num;
+        }
+
+        return $username;
+    }
+
+    /**
+     * Generate a plus-addressing email alias (e.g. user+shop-a8f3k2@example.com).
+     */
+    public function generateEmailAlias(string $baseEmail, string $serviceTag = '', int $tokenLength = 6): string
+    {
+        $baseEmail = trim($baseEmail);
+        if ($baseEmail === '' || !filter_var($baseEmail, FILTER_VALIDATE_EMAIL) || !str_contains($baseEmail, '@')) {
+            throw new InvalidArgumentException("Bitte geben Sie eine gültige Basis-E-Mail-Adresse ein.");
+        }
+
+        [$localPart, $domainPart] = explode('@', $baseEmail, 2);
+        // Strip any existing +tag from localPart
+        if (str_contains($localPart, '+')) {
+            $localPart = explode('+', $localPart, 2)[0];
+        }
+
+        $cleanTag = preg_replace('/[^a-zA-Z0-9_-]/', '', strtolower(trim($serviceTag)));
+        $alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        $alphaLen = strlen($alphabet);
+        $token = '';
+        $len = max(4, min(16, $tokenLength));
+        for ($i = 0; $i < $len; $i++) {
+            $token .= $alphabet[random_int(0, $alphaLen - 1)];
+        }
+
+        $plusPart = $cleanTag !== '' ? ($cleanTag . '-' . $token) : $token;
+        return $localPart . '+' . $plusPart . '@' . $domainPart;
     }
 
     private function getAvailableSets(array $options): array
