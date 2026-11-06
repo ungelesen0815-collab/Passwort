@@ -24,6 +24,7 @@ $permissions = $permissions ?? ($_SESSION['permissions'] ?? [
     'password_generator' => true,
     'vault' => true,
     'crypt_share' => true,
+    'secure_notes' => true,
 ]);
 
 $pageTitle = 'Dashboard';
@@ -84,6 +85,17 @@ require_once 'header.php';
                             <h5 class="card-title">🔗 Crypt Share</h5>
                             <p class="card-text">Teilen Sie Dateien sicher und verschlüsselt mit anderen.</p>
                             <a href="crypt_share.php" class="btn btn-primary">Zum Crypt Share &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($permissions['secure_notes'])): ?>
+                <div class="col-md-6 col-lg-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">📝 Sichere Notizen</h5>
+                            <p class="card-text">Speichern Sie Markdown-Notizen &amp; Recovery-Codes Ende-zu-Ende verschlüsselt.</p>
+                            <a href="secure_notes.php" class="btn btn-primary">Zu den Notizen &rarr;</a>
                         </div>
                     </div>
                 </div>

@@ -5,12 +5,14 @@ $navPermissions = $_SESSION['permissions'] ?? [
     'password_generator' => true,
     'vault' => true,
     'crypt_share' => true,
+    'secure_notes' => true,
 ];
 if ($role === 'admin') {
     $navPermissions = [
         'password_generator' => true,
         'vault' => true,
         'crypt_share' => true,
+        'secure_notes' => true,
     ];
 }
 ?>
@@ -40,6 +42,11 @@ if ($role === 'admin') {
                 <?php if (!empty($navPermissions['crypt_share'])): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="crypt_share.php">Crypt Share</a>
+                </li>
+                <?php endif; ?>
+                <?php if (!empty($navPermissions['secure_notes'])): ?>
+                <li class="nav-item">
+                    <a class="nav-link" href="secure_notes.php">Sichere Notizen</a>
                 </li>
                 <?php endif; ?>
                 <li class="nav-item">

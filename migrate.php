@@ -18,7 +18,8 @@ try {
         profile_picture VARCHAR(255) DEFAULT NULL,
         can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1,
         can_use_vault TINYINT(1) NOT NULL DEFAULT 0,
-        can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0
+        can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0,
+        can_use_secure_notes TINYINT(1) NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
     // Add columns if they do not exist for existing users tables
@@ -28,7 +29,8 @@ try {
         "profile_picture VARCHAR(255) DEFAULT NULL",
         "can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1",
         "can_use_vault TINYINT(1) NOT NULL DEFAULT 0",
-        "can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0"
+        "can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0",
+        "can_use_secure_notes TINYINT(1) NOT NULL DEFAULT 0"
     ];
 
     $stmt = $pdo->query("SHOW COLUMNS FROM users");
@@ -38,6 +40,7 @@ try {
     $hadFeatureColumns = isset($existingColumnsMap['can_use_password_generator'])
         && isset($existingColumnsMap['can_use_vault'])
         && isset($existingColumnsMap['can_use_crypt_share']);
+    $hadSecureNotesColumn = isset($existingColumnsMap['can_use_secure_notes']);
 
     $missingColumns = [];
     foreach ($columns as $columnDef) {
@@ -53,7 +56,10 @@ try {
 
     if (!$hadFeatureColumns) {
         // Existing users keep all features when migrating
-        $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1");
+        $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1, can_use_secure_notes = 1");
+    } elseif (!$hadSecureNotesColumn) {
+        // Existing users get the newly added Secure Notes feature enabled
+        $pdo->exec("UPDATE users SET can_use_secure_notes = 1");
     }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS login_attempts (
@@ -146,7 +152,20 @@ try {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
-    echo "Migration completed successfully: 'users', 'login_attempts', 'vaults', 'vault_items', and 'crypt_shares' tables are ready.\n";
+    $pdo->exec("CREATE TABLE IF NOT EXISTS secure_notes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        note_type VARCHAR(50) NOT NULL DEFAULT 'note',
+        title VARCHAR(255) NOT NULL,
+        encrypted_data LONGTEXT NOT NULL,
+        iv VARCHAR(255) NOT NULL,
+        salt VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    echo "Migration completed successfully: 'users', 'login_attempts', 'vaults', 'vault_items', 'crypt_shares', and 'secure_notes' tables are ready.\n";
 } catch (\PDOException $e) {
     echo "Migration failed: " . $e->getMessage() . "\n";
     exit(1);
