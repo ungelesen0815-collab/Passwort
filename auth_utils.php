@@ -86,6 +86,104 @@ function get_user_by_id(PDO $pdo, int|string $id): array|false {
     return $stmt->fetch();
 }
 
+function ensure_user_feature_columns(PDO $pdo): void {
+    static $checkedPdo = null;
+    if ($checkedPdo === $pdo) {
+        return;
+    }
+
+    try {
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'sqlite') {
+            $stmt = $pdo->query("PRAGMA table_info(users)");
+            $cols = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            if (empty($cols)) {
+                return;
+            }
+            $existing = array_column($cols, 'name');
+        } else {
+            $stmt = $pdo->query("SHOW COLUMNS FROM users");
+            $existing = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
+        }
+
+        $existingMap = array_flip($existing);
+        $addedAny = false;
+
+        if (!isset($existingMap['can_use_password_generator'])) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1");
+            $addedAny = true;
+        }
+        if (!isset($existingMap['can_use_vault'])) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN can_use_vault TINYINT(1) NOT NULL DEFAULT 0");
+            $addedAny = true;
+        }
+        if (!isset($existingMap['can_use_crypt_share'])) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0");
+            $addedAny = true;
+        }
+
+        if ($addedAny) {
+            // Existing users retain all features
+            $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1");
+        }
+
+        $checkedPdo = $pdo;
+    } catch (\Throwable $e) {
+        // Ignore if table does not exist yet or cannot be altered
+    }
+}
+
+function extract_permissions_from_user_row(array $user): array {
+    if (($user['role'] ?? 'user') === 'admin') {
+        return [
+            'password_generator' => true,
+            'vault' => true,
+            'crypt_share' => true,
+        ];
+    }
+
+    return [
+        'password_generator' => array_key_exists('can_use_password_generator', $user) ? !empty($user['can_use_password_generator']) : true,
+        'vault' => array_key_exists('can_use_vault', $user) ? !empty($user['can_use_vault']) : true,
+        'crypt_share' => array_key_exists('can_use_crypt_share', $user) ? !empty($user['can_use_crypt_share']) : true,
+    ];
+}
+
+function get_user_permissions(PDO $pdo, int|string $userId, string $role = 'user'): array {
+    if ($role === 'admin') {
+        $perms = [
+            'password_generator' => true,
+            'vault' => true,
+            'crypt_share' => true,
+        ];
+        $_SESSION['permissions'] = $perms;
+        return $perms;
+    }
+
+    try {
+        ensure_user_feature_columns($pdo);
+        $user = get_user_by_id($pdo, $userId);
+        if (is_array($user)) {
+            $perms = extract_permissions_from_user_row($user);
+            $_SESSION['permissions'] = $perms;
+            return $perms;
+        }
+    } catch (\Throwable $e) {
+        // Fallback to session permissions or default on DB error
+    }
+
+    return $_SESSION['permissions'] ?? [
+        'password_generator' => true,
+        'vault' => true,
+        'crypt_share' => true,
+    ];
+}
+
+function user_has_feature(PDO $pdo, int|string $userId, string $feature, string $role = 'user'): bool {
+    $perms = get_user_permissions($pdo, $userId, $role);
+    return !empty($perms[$feature]);
+}
+
 function get_mfa_encryption_key(): ?string {
     $rawKey = $_ENV['MFA_ENCRYPTION_KEY'] ?? getenv('MFA_ENCRYPTION_KEY') ?: '';
     if (!is_string($rawKey) || trim($rawKey) === '') {

@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $username = trim((string)($_POST['username'] ?? ''));
             $password = (string)($_POST['password'] ?? '');
 
+            ensure_user_feature_columns($pdo);
             $registrationService = new RegistrationService($pdo);
             $result = $registrationService->register($username, $password);
 

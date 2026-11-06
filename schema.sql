@@ -7,7 +7,10 @@ CREATE TABLE IF NOT EXISTS users (
     mfa_enabled TINYINT(1) DEFAULT 0,
     full_name VARCHAR(255) DEFAULT NULL,
     personal_details TEXT DEFAULT NULL,
-    profile_picture VARCHAR(255) DEFAULT NULL
+    profile_picture VARCHAR(255) DEFAULT NULL,
+    can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1,
+    can_use_vault TINYINT(1) NOT NULL DEFAULT 0,
+    can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS login_attempts (

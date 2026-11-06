@@ -2,6 +2,7 @@
 require_once __DIR__ . '/session.php';
 require_once 'csrf.php';
 require_once 'db.php';
+require_once 'auth_utils.php';
 
 if (!isset($_SESSION['user_id'])) {
     if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
@@ -15,6 +16,16 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $userId = $_SESSION['user_id'];
+if (!user_has_feature($pdo, $userId, 'crypt_share', $_SESSION['role'] ?? 'user')) {
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) || isset($_POST['ajax'])) {
+        header('Content-Type: application/json');
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Keine Berechtigung für Crypt Share.']);
+        exit();
+    }
+    header('Location: index.php');
+    exit();
+}
 $message = '';
 $error = '';
 const MAX_ENCRYPTED_SHARE_BYTES = 20971520; // ~20 MB encrypted payload limit
