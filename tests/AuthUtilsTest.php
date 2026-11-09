@@ -224,38 +224,50 @@ class AuthUtilsTest extends TestCase
         // Run automatic column migration
         ensure_user_feature_columns($this->pdo);
 
-        // Existing user keeps all features (1, 1, 1, 1)
+        // Existing user keeps all features (1, 1, 1, 1, 1, 1)
         $existingPerms = get_user_permissions($this->pdo, 1, 'user');
         $this->assertTrue($existingPerms['password_generator']);
         $this->assertTrue($existingPerms['vault']);
         $this->assertTrue($existingPerms['crypt_share']);
         $this->assertTrue($existingPerms['secure_notes']);
+        $this->assertTrue($existingPerms['totp']);
+        $this->assertTrue($existingPerms['security_audit']);
 
-        // New user inserted after migration only gets Password Generator (1, 0, 0, 0)
+        // New user inserted after migration only gets Password Generator (1, 0, 0, 0, 0, 0)
         $this->pdo->exec("INSERT INTO users (id, username, role) VALUES (2, 'new_user', 'user')");
         $newPerms = get_user_permissions($this->pdo, 2, 'user');
         $this->assertTrue($newPerms['password_generator']);
         $this->assertFalse($newPerms['vault']);
         $this->assertFalse($newPerms['crypt_share']);
         $this->assertFalse($newPerms['secure_notes']);
+        $this->assertFalse($newPerms['totp']);
+        $this->assertFalse($newPerms['security_audit']);
 
         // Admin can toggle features for the user
-        $stmt = $this->pdo->prepare("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 0, can_use_secure_notes = 1 WHERE id = ?");
+        $stmt = $this->pdo->prepare("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 0, can_use_secure_notes = 1, can_use_totp = 1, can_use_security_audit = 0 WHERE id = ?");
         $stmt->execute([2]);
 
         $this->assertTrue(user_has_feature($this->pdo, 2, 'password_generator', 'user'));
         $this->assertTrue(user_has_feature($this->pdo, 2, 'vault', 'user'));
         $this->assertFalse(user_has_feature($this->pdo, 2, 'crypt_share', 'user'));
         $this->assertTrue(user_has_feature($this->pdo, 2, 'secure_notes', 'user'));
+        $this->assertTrue(user_has_feature($this->pdo, 2, 'totp', 'user'));
+        $this->assertFalse(user_has_feature($this->pdo, 2, 'security_audit', 'user'));
 
         // Admin role always has all features
         $this->assertTrue(user_has_feature($this->pdo, 2, 'crypt_share', 'admin'));
         $this->assertTrue(user_has_feature($this->pdo, 2, 'secure_notes', 'admin'));
+        $this->assertTrue(user_has_feature($this->pdo, 2, 'totp', 'admin'));
+        $this->assertTrue(user_has_feature($this->pdo, 2, 'security_audit', 'admin'));
 
-        // Ensure secure_notes table creation works
+        // Ensure secure_notes and totp_entries table creation works
         ensure_secure_notes_table($this->pdo);
         $stmt = $this->pdo->prepare("INSERT INTO secure_notes (user_id, note_type, title, encrypted_data, iv, salt) VALUES (?, 'note', 'Test Note', 'cipher', 'iv123', 'salt123')");
         $this->assertTrue($stmt->execute([1]));
+
+        ensure_totp_entries_table($this->pdo);
+        $stmtTotp = $this->pdo->prepare("INSERT INTO totp_entries (user_id, issuer, account_name, category, encrypted_data, iv, salt) VALUES (?, 'GitHub', 'alice@example.com', 'DevOps', 'cipher_totp', 'iv_t', 'salt_t')");
+        $this->assertTrue($stmtTotp->execute([1]));
     }
 
     public function testEnsureCryptSharesEnhancementsSchemaAndQrCodeGeneration(): void
