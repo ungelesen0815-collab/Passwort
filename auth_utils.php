@@ -245,6 +245,80 @@ function ensure_vault_enhancements_schema(PDO $pdo): void {
     }
 }
 
+function ensure_crypt_shares_enhancements_schema(PDO $pdo): void {
+    static $checkedSharesPdo = null;
+    if ($checkedSharesPdo === $pdo) {
+        return;
+    }
+
+    try {
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'sqlite') {
+            $stmt = $pdo->query("PRAGMA table_info(crypt_shares)");
+            $cols = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            if (!empty($cols)) {
+                $existing = array_flip(array_column($cols, 'name'));
+                if (!isset($existing['pin_hash'])) {
+                    $pdo->exec("ALTER TABLE crypt_shares ADD COLUMN pin_hash VARCHAR(255) DEFAULT NULL");
+                }
+                if (!isset($existing['max_views'])) {
+                    $pdo->exec("ALTER TABLE crypt_shares ADD COLUMN max_views INT NOT NULL DEFAULT 1");
+                }
+                if (!isset($existing['view_count'])) {
+                    $pdo->exec("ALTER TABLE crypt_shares ADD COLUMN view_count INT NOT NULL DEFAULT 0");
+                }
+            }
+        } else {
+            $stmt = $pdo->query("SHOW COLUMNS FROM crypt_shares");
+            $cols = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
+            if (!empty($cols)) {
+                $existing = array_flip($cols);
+                if (!isset($existing['pin_hash'])) {
+                    $pdo->exec("ALTER TABLE crypt_shares ADD COLUMN pin_hash VARCHAR(255) DEFAULT NULL AFTER access_token");
+                }
+                if (!isset($existing['max_views'])) {
+                    $pdo->exec("ALTER TABLE crypt_shares ADD COLUMN max_views INT NOT NULL DEFAULT 1 AFTER pin_hash");
+                }
+                if (!isset($existing['view_count'])) {
+                    $pdo->exec("ALTER TABLE crypt_shares ADD COLUMN view_count INT NOT NULL DEFAULT 0 AFTER max_views");
+                }
+            }
+        }
+        $checkedSharesPdo = $pdo;
+    } catch (\Throwable $e) {
+        // Ignore if table does not exist yet or cannot be altered automatically
+    }
+}
+
+function generate_qr_svg_data_uri(string $content, int $size = 200): string {
+    if ($content === '') {
+        return '';
+    }
+
+    try {
+        if (!class_exists(\BaconQrCode\Writer::class)) {
+            $autoloadPath = __DIR__ . '/vendor/autoload.php';
+            if (file_exists($autoloadPath)) {
+                require_once $autoloadPath;
+            }
+        }
+
+        if (class_exists(\BaconQrCode\Writer::class) && class_exists(\BaconQrCode\Renderer\ImageRenderer::class)) {
+            $renderer = new \BaconQrCode\Renderer\ImageRenderer(
+                new \BaconQrCode\Renderer\RendererStyle\RendererStyle($size, 2),
+                new \BaconQrCode\Renderer\Image\SvgImageBackEnd()
+            );
+            $writer = new \BaconQrCode\Writer($renderer);
+            $svg = $writer->writeString($content);
+            return 'data:image/svg+xml;base64,' . base64_encode($svg);
+        }
+    } catch (\Throwable $e) {
+        error_log("QR Code generation error: " . $e->getMessage());
+    }
+
+    return '';
+}
+
 function extract_permissions_from_user_row(array $user): array {
     if (($user['role'] ?? 'user') === 'admin') {
         return [

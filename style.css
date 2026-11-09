@@ -77,3 +77,8 @@ body.dark-mode .text-dark {
 .vault-notes-preview {
     max-width: 280px;
 }
+
+.share-qr-img {
+    width: 180px;
+    height: 180px;
+}

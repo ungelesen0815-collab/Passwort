@@ -171,10 +171,26 @@ try {
         iv VARCHAR(255) NOT NULL,
         salt VARCHAR(255) NOT NULL,
         access_token VARCHAR(255) UNIQUE NOT NULL,
+        pin_hash VARCHAR(255) DEFAULT NULL,
+        max_views INT NOT NULL DEFAULT 1,
+        view_count INT NOT NULL DEFAULT 0,
         expires_at DATETIME NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // Check if pin_hash, max_views, view_count exist in crypt_shares
+    $stmtShareCols = $pdo->query("SHOW COLUMNS FROM crypt_shares");
+    $existingShareCols = array_flip($stmtShareCols->fetchAll(PDO::FETCH_COLUMN));
+    if (!isset($existingShareCols['pin_hash'])) {
+        $pdo->exec("ALTER TABLE crypt_shares ADD COLUMN pin_hash VARCHAR(255) DEFAULT NULL AFTER access_token");
+    }
+    if (!isset($existingShareCols['max_views'])) {
+        $pdo->exec("ALTER TABLE crypt_shares ADD COLUMN max_views INT NOT NULL DEFAULT 1 AFTER pin_hash");
+    }
+    if (!isset($existingShareCols['view_count'])) {
+        $pdo->exec("ALTER TABLE crypt_shares ADD COLUMN view_count INT NOT NULL DEFAULT 0 AFTER max_views");
+    }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS secure_notes (
         id INT AUTO_INCREMENT PRIMARY KEY,
