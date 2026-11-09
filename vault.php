@@ -752,7 +752,7 @@ require_once 'navbar.php';
                     Der Tresor-Eintrag <strong id="vaultShareItemTitle"></strong> wurde lokal im Browser mit einem zufälligen Einmal-Passwort verschlüsselt und als 24 Stunden gültiger Crypt-Share-Link hinterlegt.
                 </p>
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Freigabe-Link (24h gültig):</label>
+                    <label class="form-label fw-bold">Freigabe-Link (24h gültig, 1x Aufruf):</label>
                     <div class="input-group input-group-sm">
                         <input type="text" id="vaultShareLinkInput" class="form-control font-monospace" readonly>
                         <button type="button" class="btn btn-outline-primary" id="btn-copy-vault-share-link">📋 Link</button>
@@ -763,6 +763,12 @@ require_once 'navbar.php';
                     <div class="input-group input-group-sm">
                         <input type="text" id="vaultShareOtpInput" class="form-control font-monospace fw-bold" readonly>
                         <button type="button" class="btn btn-outline-primary" id="btn-copy-vault-share-otp">📋 Passwort</button>
+                    </div>
+                </div>
+                <div id="vaultShareQrWrapper" class="text-center mt-3 d-none">
+                    <div class="p-2 bg-white border rounded d-inline-block">
+                        <img id="vaultShareQrImg" src="" alt="QR-Code für Share-Link" class="img-fluid share-qr-img">
+                        <div class="small text-muted mt-1">📱 QR-Code für Smartphone</div>
                     </div>
                 </div>
             </div>

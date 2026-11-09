@@ -1171,6 +1171,15 @@ async function shareVaultItemViaCryptShare(itemId) {
             document.getElementById('vaultShareLinkInput').value = res.share_url;
             document.getElementById('vaultShareOtpInput').value = otp;
 
+            const qrWrapper = document.getElementById('vaultShareQrWrapper');
+            const qrImg = document.getElementById('vaultShareQrImg');
+            if (res.qr_data_uri && qrWrapper && qrImg) {
+                qrImg.src = res.qr_data_uri;
+                qrWrapper.classList.remove('d-none');
+            } else if (qrWrapper) {
+                qrWrapper.classList.add('d-none');
+            }
+
             const modalEl = document.getElementById('vaultCryptShareModal');
             if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                 const modal = bootstrap.Modal.getOrCreateInstance(modalEl);

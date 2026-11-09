@@ -257,4 +257,35 @@ class AuthUtilsTest extends TestCase
         $stmt = $this->pdo->prepare("INSERT INTO secure_notes (user_id, note_type, title, encrypted_data, iv, salt) VALUES (?, 'note', 'Test Note', 'cipher', 'iv123', 'salt123')");
         $this->assertTrue($stmt->execute([1]));
     }
+
+    public function testEnsureCryptSharesEnhancementsSchemaAndQrCodeGeneration(): void
+    {
+        $this->pdo->exec("CREATE TABLE crypt_shares (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            file_name VARCHAR(255) NOT NULL,
+            encrypted_data TEXT NOT NULL,
+            iv VARCHAR(255) NOT NULL,
+            salt VARCHAR(255) NOT NULL,
+            access_token VARCHAR(255) UNIQUE NOT NULL,
+            expires_at DATETIME NOT NULL
+        )");
+
+        ensure_crypt_shares_enhancements_schema($this->pdo);
+
+        $pinHash = password_hash('123456', PASSWORD_DEFAULT);
+        $stmt = $this->pdo->prepare("INSERT INTO crypt_shares (user_id, file_name, encrypted_data, iv, salt, access_token, pin_hash, max_views, view_count, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $this->assertTrue($stmt->execute([1, 'secret.pdf', 'enc_payload', 'iv1', 'salt1', 'tok_abc123', $pinHash, 3, 0, '2030-01-01 00:00:00']));
+
+        $stmtFetch = $this->pdo->prepare("SELECT pin_hash, max_views, view_count FROM crypt_shares WHERE access_token = ?");
+        $stmtFetch->execute(['tok_abc123']);
+        $row = $stmtFetch->fetch(PDO::FETCH_ASSOC);
+
+        $this->assertTrue(password_verify('123456', $row['pin_hash']));
+        $this->assertEquals(3, (int)$row['max_views']);
+        $this->assertEquals(0, (int)$row['view_count']);
+
+        $qrUri = generate_qr_svg_data_uri('https://example.com/share.php?token=tok_abc123', 180);
+        $this->assertStringStartsWith('data:image/svg+xml;base64,', $qrUri);
+    }
 }

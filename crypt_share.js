@@ -1,5 +1,5 @@
 /**
- * Crypt Share - Client-Side Encryption
+ * Crypt Share - Client-Side Encryption, Optional PIN/Password Protection, Max Views & QR Code UI
  */
 
 function generateOneTimePassword(length = 16) {
@@ -11,6 +11,17 @@ function generateOneTimePassword(length = 16) {
         retVal += charset.charAt(randomValues[i] % n);
     }
     return retVal;
+}
+
+function generateNumericPin(length = 6) {
+    const digits = "0123456789";
+    let pin = "";
+    const randomValues = new Uint32Array(length);
+    window.crypto.getRandomValues(randomValues);
+    for (let i = 0; i < length; ++i) {
+        pin += digits.charAt(randomValues[i] % 10);
+    }
+    return pin;
 }
 
 async function readFileAsArrayBuffer(file) {
@@ -30,6 +41,39 @@ document.addEventListener('DOMContentLoaded', () => {
         copyInfoBtn.addEventListener('click', copyShareInfo);
     }
 
+    const copyLinkOnlyBtn = document.getElementById('btnCopyShareLinkOnly');
+    if (copyLinkOnlyBtn) {
+        copyLinkOnlyBtn.addEventListener('click', () => {
+            const link = document.getElementById('shareLinkResult')?.href || '';
+            if (link && navigator.clipboard) {
+                navigator.clipboard.writeText(link).then(() => {
+                    alert('Freigabe-Link in die Zwischenablage kopiert.');
+                });
+            }
+        });
+    }
+
+    const togglePinBtn = document.getElementById('btnToggleSharePin');
+    if (togglePinBtn) {
+        togglePinBtn.addEventListener('click', () => {
+            const pinInput = document.getElementById('shareAccessPin');
+            if (pinInput) {
+                pinInput.type = pinInput.type === 'password' ? 'text' : 'password';
+            }
+        });
+    }
+
+    const genPinBtn = document.getElementById('btnGenerateSharePin');
+    if (genPinBtn) {
+        genPinBtn.addEventListener('click', () => {
+            const pinInput = document.getElementById('shareAccessPin');
+            if (pinInput) {
+                pinInput.value = generateNumericPin(6);
+                pinInput.type = 'text';
+            }
+        });
+    }
+
     document.querySelectorAll('.btn-copy-share-link').forEach((btn) => {
         btn.addEventListener('click', () => {
             const url = btn.getAttribute('data-url');
@@ -37,6 +81,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 navigator.clipboard.writeText(url).then(() => {
                     alert('Link in die Zwischenablage kopiert.');
                 });
+            }
+        });
+    });
+
+    document.querySelectorAll('.btn-show-share-qr').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const qrUri = btn.getAttribute('data-qr') || '';
+            const filename = btn.getAttribute('data-filename') || '';
+            const imgEl = document.getElementById('shareQrModalImg');
+            const nameEl = document.getElementById('shareQrModalFilename');
+            if (imgEl) imgEl.src = qrUri;
+            if (nameEl) nameEl.textContent = filename;
+
+            const modalEl = document.getElementById('shareQrModal');
+            if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
             }
         });
     });
@@ -64,6 +125,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const maxViewsSelect = document.getElementById('shareMaxViews');
+        const maxViews = maxViewsSelect ? maxViewsSelect.value : '1';
+        const accessPinInput = document.getElementById('shareAccessPin');
+        const accessPin = accessPinInput ? accessPinInput.value.trim() : '';
+
         const btn = document.getElementById('btnShare');
         const originalBtnText = btn.innerText;
         btn.innerText = 'Verschlüssele...';
@@ -73,10 +139,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Read file
             const fileData = await readFileAsArrayBuffer(file);
 
-            // Encode file data as base64 so we can treat it as a string for VaultCrypto
-            // Or better yet, we should encrypt the ArrayBuffer directly.
-            // Let's modify VaultCrypto's encrypt method to accept ArrayBuffer or string
-
             // Generate OTP and Salt
             const otp = generateOneTimePassword(16);
             const salt = VaultCrypto.generateSalt();
@@ -84,8 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Derive Key
             const key = await VaultCrypto.deriveMasterKey(otp, salt);
 
-            // We'll base64 encode the file first to reuse the existing VaultCrypto logic
-            // which expects string/JSON
             const fileBase64 = VaultCrypto.bufferToBase64(fileData);
 
             const payload = JSON.stringify({
@@ -106,6 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('encrypted_data', encrypted.ciphertext);
             formData.append('iv', encrypted.iv);
             formData.append('salt', salt);
+            formData.append('max_views', maxViews);
+            formData.append('access_pin', accessPin);
             formData.append('ajax', '1');
 
             btn.innerText = 'Lade hoch...';
@@ -124,6 +186,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 linkEl.href = res.share_url;
                 linkEl.innerText = res.share_url;
                 document.getElementById('sharePasswordResult').innerText = otp;
+
+                const maxViewsLabelEl = document.getElementById('shareMaxViewsResult');
+                if (maxViewsLabelEl) {
+                    const mv = Number(res.max_views ?? maxViews);
+                    maxViewsLabelEl.textContent = mv > 0 ? `max. ${mv}x abrufbar` : 'unbegrenzte Aufrufe für 24h';
+                }
+
+                const pinRow = document.getElementById('sharePinResultRow');
+                const pinCodeEl = document.getElementById('sharePinResult');
+                if (accessPin !== '' && pinRow && pinCodeEl) {
+                    pinCodeEl.textContent = accessPin;
+                    pinRow.classList.remove('d-none');
+                } else if (pinRow && pinCodeEl) {
+                    pinCodeEl.textContent = '';
+                    pinRow.classList.add('d-none');
+                }
+
+                const qrContainer = document.getElementById('shareQrContainer');
+                const qrImage = document.getElementById('shareQrImage');
+                if (res.qr_data_uri && qrImage && qrContainer) {
+                    qrImage.src = res.qr_data_uri;
+                    qrContainer.classList.remove('d-none');
+                } else if (qrContainer) {
+                    qrContainer.classList.add('d-none');
+                }
+
                 form.reset();
             } else {
                 alert("Fehler: " + (res.error || "Unbekannter Fehler beim Hochladen."));
@@ -138,11 +226,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 function copyShareInfo() {
     const link = document.getElementById('shareLinkResult').href;
     const pwd = document.getElementById('sharePasswordResult').innerText;
-    const text = `Hier ist eine sicher geteilte Datei für dich:\n\nLink: ${link}\nPasswort: ${pwd}\n\nDieser Link ist für 24 Stunden gültig.`;
+    const pinEl = document.getElementById('sharePinResult');
+    const pin = pinEl ? pinEl.innerText.trim() : '';
+    const maxViewsText = document.getElementById('shareMaxViewsResult')?.textContent || '24 Stunden gültig';
+
+    let text = `Hier ist eine sicher geteilte Datei für dich:\n\nLink: ${link}\nEinmal-Passwort: ${pwd}`;
+    if (pin !== '') {
+        text += `\nZugriffs-PIN: ${pin}`;
+    }
+    text += `\n\nHinweis: Dieser Link ist 24 Stunden gültig (${maxViewsText}).`;
+
     navigator.clipboard.writeText(text).then(() => {
-        alert('Link und Passwort in die Zwischenablage kopiert.');
+        alert('Link und Zugangsdaten in die Zwischenablage kopiert.');
     });
 }
