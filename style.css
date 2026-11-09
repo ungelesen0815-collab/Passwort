@@ -73,3 +73,7 @@ body.dark-mode .text-dark {
 .length-input-width {
     width: 90px;
 }
+
+.vault-notes-preview {
+    max-width: 280px;
+}

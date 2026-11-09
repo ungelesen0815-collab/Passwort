@@ -125,4 +125,39 @@ class VaultTest extends TestCase
         $nullResult = validate_csrf_token(null);
         $this->assertIsString($nullResult);
     }
+
+    public function testVaultCategoriesFavoritesAndHistorySchemaAndOperations(): void
+    {
+        require_once __DIR__ . '/../auth_utils.php';
+        ensure_vault_enhancements_schema($this->pdo);
+
+        // Insert an item with category and favorite flag
+        $stmt = $this->pdo->prepare("INSERT INTO vault_items (user_id, vault_id, item_type, title, category, is_favorite, encrypted_data, iv, salt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([1, 1, 'password', 'Root Server', 'Server', 1, 'enc_v1', 'iv_v1', 'salt_v1']);
+        $itemId = (int)$this->pdo->lastInsertId();
+
+        // Verify category and favorite stored
+        $stmtFetch = $this->pdo->prepare("SELECT title, category, is_favorite, encrypted_data FROM vault_items WHERE id = ? AND user_id = ?");
+        $stmtFetch->execute([$itemId, 1]);
+        $item = $stmtFetch->fetch(PDO::FETCH_ASSOC);
+
+        $this->assertEquals('Server', $item['category']);
+        $this->assertEquals(1, (int)$item['is_favorite']);
+        $this->assertEquals('enc_v1', $item['encrypted_data']);
+
+        // Record previous state in history before updating password
+        $stmtHist = $this->pdo->prepare("INSERT INTO vault_item_history (vault_item_id, user_id, encrypted_data, iv, salt) VALUES (?, ?, ?, ?, ?)");
+        $stmtHist->execute([$itemId, 1, $item['encrypted_data'], 'iv_v1', 'salt_v1']);
+
+        $stmtUpd = $this->pdo->prepare("UPDATE vault_items SET encrypted_data = ?, iv = ?, salt = ? WHERE id = ? AND user_id = ?");
+        $stmtUpd->execute(['enc_v2', 'iv_v2', 'salt_v2', $itemId, 1]);
+
+        // Verify history contains v1 and item contains v2
+        $stmtGetHist = $this->pdo->prepare("SELECT encrypted_data, iv, salt FROM vault_item_history WHERE vault_item_id = ? AND user_id = ?");
+        $stmtGetHist->execute([$itemId, 1]);
+        $histRows = $stmtGetHist->fetchAll(PDO::FETCH_ASSOC);
+
+        $this->assertCount(1, $histRows);
+        $this->assertEquals('enc_v1', $histRows[0]['encrypted_data']);
+    }
 }

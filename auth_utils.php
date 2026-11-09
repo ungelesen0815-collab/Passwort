@@ -182,6 +182,69 @@ function ensure_secure_notes_table(PDO $pdo): void {
     }
 }
 
+function ensure_vault_enhancements_schema(PDO $pdo): void {
+    static $checkedVaultPdo = null;
+    if ($checkedVaultPdo === $pdo) {
+        return;
+    }
+
+    try {
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'sqlite') {
+            $stmt = $pdo->query("PRAGMA table_info(vault_items)");
+            $cols = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+            if (!empty($cols)) {
+                $existing = array_flip(array_column($cols, 'name'));
+                if (!isset($existing['category'])) {
+                    $pdo->exec("ALTER TABLE vault_items ADD COLUMN category VARCHAR(100) NOT NULL DEFAULT ''");
+                }
+                if (!isset($existing['is_favorite'])) {
+                    $pdo->exec("ALTER TABLE vault_items ADD COLUMN is_favorite TINYINT(1) NOT NULL DEFAULT 0");
+                }
+            }
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS vault_item_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                vault_item_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                encrypted_data TEXT NOT NULL,
+                iv VARCHAR(255) NOT NULL,
+                salt VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (vault_item_id) REFERENCES vault_items(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )");
+        } else {
+            $stmt = $pdo->query("SHOW COLUMNS FROM vault_items");
+            $cols = $stmt ? $stmt->fetchAll(PDO::FETCH_COLUMN) : [];
+            if (!empty($cols)) {
+                $existing = array_flip($cols);
+                if (!isset($existing['category'])) {
+                    $pdo->exec("ALTER TABLE vault_items ADD COLUMN category VARCHAR(100) NOT NULL DEFAULT '' AFTER title");
+                }
+                if (!isset($existing['is_favorite'])) {
+                    $pdo->exec("ALTER TABLE vault_items ADD COLUMN is_favorite TINYINT(1) NOT NULL DEFAULT 0 AFTER category");
+                }
+            }
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS vault_item_history (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                vault_item_id INT NOT NULL,
+                user_id INT NOT NULL,
+                encrypted_data LONGTEXT NOT NULL,
+                iv VARCHAR(255) NOT NULL,
+                salt VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (vault_item_id) REFERENCES vault_items(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+        $checkedVaultPdo = $pdo;
+    } catch (\Throwable $e) {
+        // Ignore if table does not exist yet or cannot be altered automatically
+    }
+}
+
 function extract_permissions_from_user_row(array $user): array {
     if (($user['role'] ?? 'user') === 'admin') {
         return [

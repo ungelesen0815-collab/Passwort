@@ -87,11 +87,35 @@ try {
         user_id INT NOT NULL,
         item_type ENUM('password', 'keyfile', 'certificate') NOT NULL,
         title VARCHAR(255) NOT NULL,
+        category VARCHAR(100) NOT NULL DEFAULT '',
+        is_favorite TINYINT(1) NOT NULL DEFAULT 0,
         encrypted_data LONGTEXT NOT NULL,
         iv VARCHAR(255) NOT NULL,
         salt VARCHAR(255) NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // Check if category and is_favorite exist in vault_items
+    $stmtVaultCols = $pdo->query("SHOW COLUMNS FROM vault_items");
+    $existingVaultCols = array_flip($stmtVaultCols->fetchAll(PDO::FETCH_COLUMN));
+    if (!isset($existingVaultCols['category'])) {
+        $pdo->exec("ALTER TABLE vault_items ADD COLUMN category VARCHAR(100) NOT NULL DEFAULT '' AFTER title");
+    }
+    if (!isset($existingVaultCols['is_favorite'])) {
+        $pdo->exec("ALTER TABLE vault_items ADD COLUMN is_favorite TINYINT(1) NOT NULL DEFAULT 0 AFTER category");
+    }
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS vault_item_history (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        vault_item_id INT NOT NULL,
+        user_id INT NOT NULL,
+        encrypted_data LONGTEXT NOT NULL,
+        iv VARCHAR(255) NOT NULL,
+        salt VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (vault_item_id) REFERENCES vault_items(id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
