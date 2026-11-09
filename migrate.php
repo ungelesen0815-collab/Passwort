@@ -19,7 +19,9 @@ try {
         can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1,
         can_use_vault TINYINT(1) NOT NULL DEFAULT 0,
         can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0,
-        can_use_secure_notes TINYINT(1) NOT NULL DEFAULT 0
+        can_use_secure_notes TINYINT(1) NOT NULL DEFAULT 0,
+        can_use_totp TINYINT(1) NOT NULL DEFAULT 0,
+        can_use_security_audit TINYINT(1) NOT NULL DEFAULT 0
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
     // Add columns if they do not exist for existing users tables
@@ -30,7 +32,9 @@ try {
         "can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1",
         "can_use_vault TINYINT(1) NOT NULL DEFAULT 0",
         "can_use_crypt_share TINYINT(1) NOT NULL DEFAULT 0",
-        "can_use_secure_notes TINYINT(1) NOT NULL DEFAULT 0"
+        "can_use_secure_notes TINYINT(1) NOT NULL DEFAULT 0",
+        "can_use_totp TINYINT(1) NOT NULL DEFAULT 0",
+        "can_use_security_audit TINYINT(1) NOT NULL DEFAULT 0"
     ];
 
     $stmt = $pdo->query("SHOW COLUMNS FROM users");
@@ -41,6 +45,8 @@ try {
         && isset($existingColumnsMap['can_use_vault'])
         && isset($existingColumnsMap['can_use_crypt_share']);
     $hadSecureNotesColumn = isset($existingColumnsMap['can_use_secure_notes']);
+    $hadTotpColumn = isset($existingColumnsMap['can_use_totp']);
+    $hadAuditColumn = isset($existingColumnsMap['can_use_security_audit']);
 
     $missingColumns = [];
     foreach ($columns as $columnDef) {
@@ -56,10 +62,17 @@ try {
 
     if (!$hadFeatureColumns) {
         // Existing users keep all features when migrating
-        $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1, can_use_secure_notes = 1");
-    } elseif (!$hadSecureNotesColumn) {
-        // Existing users get the newly added Secure Notes feature enabled
-        $pdo->exec("UPDATE users SET can_use_secure_notes = 1");
+        $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1, can_use_secure_notes = 1, can_use_totp = 1, can_use_security_audit = 1");
+    } else {
+        if (!$hadSecureNotesColumn) {
+            $pdo->exec("UPDATE users SET can_use_secure_notes = 1");
+        }
+        if (!$hadTotpColumn) {
+            $pdo->exec("UPDATE users SET can_use_totp = 1");
+        }
+        if (!$hadAuditColumn) {
+            $pdo->exec("UPDATE users SET can_use_security_audit = 1");
+        }
     }
 
     $pdo->exec("CREATE TABLE IF NOT EXISTS login_attempts (
@@ -197,6 +210,20 @@ try {
         user_id INT NOT NULL,
         note_type VARCHAR(50) NOT NULL DEFAULT 'note',
         title VARCHAR(255) NOT NULL,
+        encrypted_data LONGTEXT NOT NULL,
+        iv VARCHAR(255) NOT NULL,
+        salt VARCHAR(255) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $pdo->exec("CREATE TABLE IF NOT EXISTS totp_entries (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        issuer VARCHAR(255) NOT NULL DEFAULT '',
+        account_name VARCHAR(255) NOT NULL,
+        category VARCHAR(100) NOT NULL DEFAULT '',
         encrypted_data LONGTEXT NOT NULL,
         iv VARCHAR(255) NOT NULL,
         salt VARCHAR(255) NOT NULL,

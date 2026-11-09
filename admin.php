@@ -44,13 +44,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['promote_id'])) {
         $canVault = isset($_POST['can_use_vault']) ? 1 : 0;
         $canCryptShare = isset($_POST['can_use_crypt_share']) ? 1 : 0;
         $canSecureNotes = isset($_POST['can_use_secure_notes']) ? 1 : 0;
+        $canTotp = isset($_POST['can_use_totp']) ? 1 : 0;
+        $canSecurityAudit = isset($_POST['can_use_security_audit']) ? 1 : 0;
 
         try {
             ensure_user_feature_columns($pdo);
-            $stmt = $pdo->prepare("UPDATE users SET can_use_password_generator = ?, can_use_vault = ?, can_use_crypt_share = ?, can_use_secure_notes = ? WHERE id = ? AND role != 'admin'");
-            $stmt->execute([$canPasswordGen, $canVault, $canCryptShare, $canSecureNotes, $targetUserId]);
+            $stmt = $pdo->prepare("UPDATE users SET can_use_password_generator = ?, can_use_vault = ?, can_use_crypt_share = ?, can_use_secure_notes = ?, can_use_totp = ?, can_use_security_audit = ? WHERE id = ? AND role != 'admin'");
+            $stmt->execute([$canPasswordGen, $canVault, $canCryptShare, $canSecureNotes, $canTotp, $canSecurityAudit, $targetUserId]);
             $adminId = $_SESSION['user_id'];
-            error_log("AUDIT: Admin ID {$adminId} updated feature permissions for User ID {$targetUserId} (pg={$canPasswordGen}, vault={$canVault}, share={$canCryptShare}, notes={$canSecureNotes}).");
+            error_log("AUDIT: Admin ID {$adminId} updated feature permissions for User ID {$targetUserId} (pg={$canPasswordGen}, vault={$canVault}, share={$canCryptShare}, notes={$canSecureNotes}, totp={$canTotp}, audit={$canSecurityAudit}).");
             $message = "Funktionen für Benutzer erfolgreich aktualisiert.";
         } catch (\PDOException $e) {
             error_log("Database error occurred while updating user permissions: " . $e->getMessage());
@@ -184,13 +186,23 @@ require_once 'header.php';
                             <input class="form-check-input" type="checkbox" id="notes_<?= (int)$u['id'] ?>" name="can_use_secure_notes" value="1" <?= $uPerms['secure_notes'] ? 'checked' : '' ?>>
                             <label class="form-check-label" for="notes_<?= (int)$u['id'] ?>">Sichere Notizen</label>
                         </div>
+                        <div class="form-check form-check-inline m-0">
+                            <input class="form-check-input" type="checkbox" id="totp_<?= (int)$u['id'] ?>" name="can_use_totp" value="1" <?= !empty($uPerms['totp']) ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="totp_<?= (int)$u['id'] ?>">2FA Authenticator</label>
+                        </div>
+                        <div class="form-check form-check-inline m-0">
+                            <input class="form-check-input" type="checkbox" id="audit_<?= (int)$u['id'] ?>" name="can_use_security_audit" value="1" <?= !empty($uPerms['security_audit']) ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="audit_<?= (int)$u['id'] ?>">Security Audit</label>
+                        </div>
                         <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
                     </form>
                     <?php else: ?>
                         <span class="badge bg-info text-dark me-1">Passwort-Generator</span>
                         <span class="badge bg-info text-dark me-1">Tresor</span>
                         <span class="badge bg-info text-dark me-1">Crypt Share</span>
-                        <span class="badge bg-info text-dark">Sichere Notizen</span>
+                        <span class="badge bg-info text-dark me-1">Sichere Notizen</span>
+                        <span class="badge bg-info text-dark me-1">2FA Authenticator</span>
+                        <span class="badge bg-info text-dark">Security Audit</span>
                     <?php endif; ?>
                 </td>
                 <td>

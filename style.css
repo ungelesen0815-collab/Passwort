@@ -82,3 +82,7 @@ body.dark-mode .text-dark {
     width: 180px;
     height: 180px;
 }
+
+.totp-progress {
+    height: 6px;
+}

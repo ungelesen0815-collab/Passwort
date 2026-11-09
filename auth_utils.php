@@ -109,6 +109,8 @@ function ensure_user_feature_columns(PDO $pdo): void {
         $existingMap = array_flip($existing);
         $addedBaseFeatures = false;
         $addedSecureNotes = false;
+        $addedTotp = false;
+        $addedAudit = false;
 
         if (!isset($existingMap['can_use_password_generator'])) {
             $pdo->exec("ALTER TABLE users ADD COLUMN can_use_password_generator TINYINT(1) NOT NULL DEFAULT 1");
@@ -126,13 +128,28 @@ function ensure_user_feature_columns(PDO $pdo): void {
             $pdo->exec("ALTER TABLE users ADD COLUMN can_use_secure_notes TINYINT(1) NOT NULL DEFAULT 0");
             $addedSecureNotes = true;
         }
+        if (!isset($existingMap['can_use_totp'])) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN can_use_totp TINYINT(1) NOT NULL DEFAULT 0");
+            $addedTotp = true;
+        }
+        if (!isset($existingMap['can_use_security_audit'])) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN can_use_security_audit TINYINT(1) NOT NULL DEFAULT 0");
+            $addedAudit = true;
+        }
 
         if ($addedBaseFeatures) {
             // Existing users retain all features
-            $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1, can_use_secure_notes = 1");
-        } elseif ($addedSecureNotes) {
-            // Existing users get the newly added Secure Notes feature enabled
-            $pdo->exec("UPDATE users SET can_use_secure_notes = 1");
+            $pdo->exec("UPDATE users SET can_use_password_generator = 1, can_use_vault = 1, can_use_crypt_share = 1, can_use_secure_notes = 1, can_use_totp = 1, can_use_security_audit = 1");
+        } else {
+            if ($addedSecureNotes) {
+                $pdo->exec("UPDATE users SET can_use_secure_notes = 1");
+            }
+            if ($addedTotp) {
+                $pdo->exec("UPDATE users SET can_use_totp = 1");
+            }
+            if ($addedAudit) {
+                $pdo->exec("UPDATE users SET can_use_security_audit = 1");
+            }
         }
 
         $checkedPdo = $pdo;
@@ -319,6 +336,49 @@ function generate_qr_svg_data_uri(string $content, int $size = 200): string {
     return '';
 }
 
+function ensure_totp_entries_table(PDO $pdo): void {
+    static $checkedTotpPdo = null;
+    if ($checkedTotpPdo === $pdo) {
+        return;
+    }
+
+    try {
+        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'sqlite') {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS totp_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                issuer VARCHAR(255) NOT NULL DEFAULT '',
+                account_name VARCHAR(255) NOT NULL,
+                category VARCHAR(100) NOT NULL DEFAULT '',
+                encrypted_data TEXT NOT NULL,
+                iv VARCHAR(255) NOT NULL,
+                salt VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )");
+        } else {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS totp_entries (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                issuer VARCHAR(255) NOT NULL DEFAULT '',
+                account_name VARCHAR(255) NOT NULL,
+                category VARCHAR(100) NOT NULL DEFAULT '',
+                encrypted_data LONGTEXT NOT NULL,
+                iv VARCHAR(255) NOT NULL,
+                salt VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+        $checkedTotpPdo = $pdo;
+    } catch (\Throwable $e) {
+        // Ignore if table cannot be created automatically
+    }
+}
+
 function extract_permissions_from_user_row(array $user): array {
     if (($user['role'] ?? 'user') === 'admin') {
         return [
@@ -326,6 +386,8 @@ function extract_permissions_from_user_row(array $user): array {
             'vault' => true,
             'crypt_share' => true,
             'secure_notes' => true,
+            'totp' => true,
+            'security_audit' => true,
         ];
     }
 
@@ -334,6 +396,8 @@ function extract_permissions_from_user_row(array $user): array {
         'vault' => array_key_exists('can_use_vault', $user) ? !empty($user['can_use_vault']) : true,
         'crypt_share' => array_key_exists('can_use_crypt_share', $user) ? !empty($user['can_use_crypt_share']) : true,
         'secure_notes' => array_key_exists('can_use_secure_notes', $user) ? !empty($user['can_use_secure_notes']) : true,
+        'totp' => array_key_exists('can_use_totp', $user) ? !empty($user['can_use_totp']) : true,
+        'security_audit' => array_key_exists('can_use_security_audit', $user) ? !empty($user['can_use_security_audit']) : true,
     ];
 }
 
@@ -344,6 +408,8 @@ function get_user_permissions(PDO $pdo, int|string $userId, string $role = 'user
             'vault' => true,
             'crypt_share' => true,
             'secure_notes' => true,
+            'totp' => true,
+            'security_audit' => true,
         ];
         $_SESSION['permissions'] = $perms;
         return $perms;
@@ -366,6 +432,8 @@ function get_user_permissions(PDO $pdo, int|string $userId, string $role = 'user
         'vault' => true,
         'crypt_share' => true,
         'secure_notes' => true,
+        'totp' => true,
+        'security_audit' => true,
     ];
 }
 

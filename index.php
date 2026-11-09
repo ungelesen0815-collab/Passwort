@@ -25,6 +25,8 @@ $permissions = $permissions ?? ($_SESSION['permissions'] ?? [
     'vault' => true,
     'crypt_share' => true,
     'secure_notes' => true,
+    'totp' => true,
+    'security_audit' => true,
 ]);
 
 $pageTitle = 'Dashboard';
@@ -96,6 +98,28 @@ require_once 'header.php';
                             <h5 class="card-title">📝 Sichere Notizen</h5>
                             <p class="card-text">Speichern Sie Markdown-Notizen &amp; Recovery-Codes Ende-zu-Ende verschlüsselt.</p>
                             <a href="secure_notes.php" class="btn btn-primary">Zu den Notizen &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($permissions['totp'])): ?>
+                <div class="col-md-6 col-lg-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">⏱️ 2FA Authenticator</h5>
+                            <p class="card-text">Speichern Sie TOTP-Secrets (otpauth://) verschlüsselt &amp; generieren Sie Live-2FA-Codes.</p>
+                            <a href="totp_authenticator.php" class="btn btn-primary">Zum Authenticator &rarr;</a>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($permissions['security_audit'])): ?>
+                <div class="col-md-6 col-lg-3 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">🕵️ Security Audit</h5>
+                            <p class="card-text">Prüfen Sie Passwörter &amp; Tresore anonym per k-Anonymity (HIBP) auf Datenlecks.</p>
+                            <a href="security_audit.php" class="btn btn-primary">Zum Datenleck-Check &rarr;</a>
                         </div>
                     </div>
                 </div>

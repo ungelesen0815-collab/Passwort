@@ -6,6 +6,8 @@ $navPermissions = $_SESSION['permissions'] ?? [
     'vault' => true,
     'crypt_share' => true,
     'secure_notes' => true,
+    'totp' => true,
+    'security_audit' => true,
 ];
 if ($role === 'admin') {
     $navPermissions = [
@@ -13,6 +15,8 @@ if ($role === 'admin') {
         'vault' => true,
         'crypt_share' => true,
         'secure_notes' => true,
+        'totp' => true,
+        'security_audit' => true,
     ];
 }
 ?>
@@ -47,6 +51,16 @@ if ($role === 'admin') {
                 <?php if (!empty($navPermissions['secure_notes'])): ?>
                 <li class="nav-item">
                     <a class="nav-link" href="secure_notes.php">Sichere Notizen</a>
+                </li>
+                <?php endif; ?>
+                <?php if (!empty($navPermissions['totp'])): ?>
+                <li class="nav-item">
+                    <a class="nav-link" href="totp_authenticator.php">2FA Authenticator</a>
+                </li>
+                <?php endif; ?>
+                <?php if (!empty($navPermissions['security_audit'])): ?>
+                <li class="nav-item">
+                    <a class="nav-link" href="security_audit.php">Security Audit</a>
                 </li>
                 <?php endif; ?>
                 <li class="nav-item">
