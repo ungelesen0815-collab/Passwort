@@ -20,7 +20,8 @@
     "scripts": {
         "test": [
             "@php vendor/bin/phpunit",
-            "node theme.test.js"
+            "node theme.test.js",
+            "node pwa.test.js"
         ]
     }
 }

@@ -1,8 +1,8 @@
-/* Add a fixed button to the bottom left */
+/* Add a fixed button to the bottom left with safe area support */
 .theme-toggle-btn {
     position: fixed;
-    bottom: 20px;
-    left: 20px;
+    bottom: max(20px, env(safe-area-inset-bottom, 20px));
+    left: max(20px, env(safe-area-inset-left, 20px));
     z-index: 1000;
 }
 
@@ -86,3 +86,54 @@ body.dark-mode .text-dark {
 .totp-progress {
     height: 6px;
 }
+
+/* PWA Offline Banner */
+.pwa-offline-banner {
+    z-index: 1090;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* Mobile Optimizations */
+.table-responsive {
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+    /* Prevent iOS auto-zoom on input focus */
+    .form-control,
+    .form-select {
+        font-size: 16px;
+    }
+
+    /* Generous touch targets for mobile */
+    .btn {
+        min-height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .navbar-toggler {
+        padding: 0.5rem 0.75rem;
+    }
+
+    .nav-link {
+        padding-top: 0.6rem !important;
+        padding-bottom: 0.6rem !important;
+    }
+
+    .theme-toggle-btn {
+        bottom: max(16px, env(safe-area-inset-bottom, 16px));
+        left: max(16px, env(safe-area-inset-left, 16px));
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
+    }
+
+    /* Wrap long crypto tokens / hashes on mobile */
+    .table td,
+    .table th {
+        word-break: break-word;
+    }
+}
+

@@ -146,80 +146,82 @@ require_once 'header.php';
         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
 
-    <table class="table table-bordered table-striped bg-white align-middle">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Role</th>
-                <th>MFA Enabled</th>
-                <th>Funktionen</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($users as $u): ?>
-            <?php $uPerms = extract_permissions_from_user_row($u); ?>
-            <tr>
-                <td><?= htmlspecialchars($u['id']) ?></td>
-                <td><?= htmlspecialchars($u['username']) ?></td>
-                <td><?= htmlspecialchars($u['role']) ?></td>
-                <td><?= $u['mfa_enabled'] ? 'Yes' : 'No' ?></td>
-                <td>
-                    <?php if ($u['role'] !== 'admin'): ?>
-                    <form method="post" action="admin.php?page=<?= (int)$page ?>" class="d-flex flex-wrap align-items-center gap-3 m-0">
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                        <input type="hidden" name="update_permissions_user_id" value="<?= (int)$u['id'] ?>">
-                        <div class="form-check form-check-inline m-0">
-                            <input class="form-check-input" type="checkbox" id="pg_<?= (int)$u['id'] ?>" name="can_use_password_generator" value="1" <?= $uPerms['password_generator'] ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="pg_<?= (int)$u['id'] ?>">Passwort-Generator</label>
-                        </div>
-                        <div class="form-check form-check-inline m-0">
-                            <input class="form-check-input" type="checkbox" id="vault_<?= (int)$u['id'] ?>" name="can_use_vault" value="1" <?= $uPerms['vault'] ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="vault_<?= (int)$u['id'] ?>">Tresor</label>
-                        </div>
-                        <div class="form-check form-check-inline m-0">
-                            <input class="form-check-input" type="checkbox" id="share_<?= (int)$u['id'] ?>" name="can_use_crypt_share" value="1" <?= $uPerms['crypt_share'] ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="share_<?= (int)$u['id'] ?>">Crypt Share</label>
-                        </div>
-                        <div class="form-check form-check-inline m-0">
-                            <input class="form-check-input" type="checkbox" id="notes_<?= (int)$u['id'] ?>" name="can_use_secure_notes" value="1" <?= $uPerms['secure_notes'] ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="notes_<?= (int)$u['id'] ?>">Sichere Notizen</label>
-                        </div>
-                        <div class="form-check form-check-inline m-0">
-                            <input class="form-check-input" type="checkbox" id="totp_<?= (int)$u['id'] ?>" name="can_use_totp" value="1" <?= !empty($uPerms['totp']) ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="totp_<?= (int)$u['id'] ?>">2FA Authenticator</label>
-                        </div>
-                        <div class="form-check form-check-inline m-0">
-                            <input class="form-check-input" type="checkbox" id="audit_<?= (int)$u['id'] ?>" name="can_use_security_audit" value="1" <?= !empty($uPerms['security_audit']) ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="audit_<?= (int)$u['id'] ?>">Security Audit</label>
-                        </div>
-                        <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
-                    </form>
-                    <?php else: ?>
-                        <span class="badge bg-info text-dark me-1">Passwort-Generator</span>
-                        <span class="badge bg-info text-dark me-1">Tresor</span>
-                        <span class="badge bg-info text-dark me-1">Crypt Share</span>
-                        <span class="badge bg-info text-dark me-1">Sichere Notizen</span>
-                        <span class="badge bg-info text-dark me-1">2FA Authenticator</span>
-                        <span class="badge bg-info text-dark">Security Audit</span>
-                    <?php endif; ?>
-                </td>
-                <td>
-                    <?php if ($u['role'] !== 'admin'): ?>
-                    <form method="post" action="admin.php" class="d-inline">
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
-                        <input type="hidden" name="promote_id" value="<?= $u['id'] ?>">
-                        <button type="submit" class="btn btn-sm btn-success">Promote to Admin</button>
-                    </form>
-                    <?php else: ?>
-                        <span class="badge bg-secondary">Admin</span>
-                    <?php endif; ?>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped bg-white align-middle">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>MFA Enabled</th>
+                    <th>Funktionen</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($users as $u): ?>
+                <?php $uPerms = extract_permissions_from_user_row($u); ?>
+                <tr>
+                    <td><?= htmlspecialchars($u['id']) ?></td>
+                    <td><?= htmlspecialchars($u['username']) ?></td>
+                    <td><?= htmlspecialchars($u['role']) ?></td>
+                    <td><?= $u['mfa_enabled'] ? 'Yes' : 'No' ?></td>
+                    <td>
+                        <?php if ($u['role'] !== 'admin'): ?>
+                        <form method="post" action="admin.php?page=<?= (int)$page ?>" class="d-flex flex-wrap align-items-center gap-3 m-0">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                            <input type="hidden" name="update_permissions_user_id" value="<?= (int)$u['id'] ?>">
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="checkbox" id="pg_<?= (int)$u['id'] ?>" name="can_use_password_generator" value="1" <?= $uPerms['password_generator'] ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="pg_<?= (int)$u['id'] ?>">Passwort-Generator</label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="checkbox" id="vault_<?= (int)$u['id'] ?>" name="can_use_vault" value="1" <?= $uPerms['vault'] ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="vault_<?= (int)$u['id'] ?>">Tresor</label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="checkbox" id="share_<?= (int)$u['id'] ?>" name="can_use_crypt_share" value="1" <?= $uPerms['crypt_share'] ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="share_<?= (int)$u['id'] ?>">Crypt Share</label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="checkbox" id="notes_<?= (int)$u['id'] ?>" name="can_use_secure_notes" value="1" <?= $uPerms['secure_notes'] ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="notes_<?= (int)$u['id'] ?>">Sichere Notizen</label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="checkbox" id="totp_<?= (int)$u['id'] ?>" name="can_use_totp" value="1" <?= !empty($uPerms['totp']) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="totp_<?= (int)$u['id'] ?>">2FA Authenticator</label>
+                            </div>
+                            <div class="form-check form-check-inline m-0">
+                                <input class="form-check-input" type="checkbox" id="audit_<?= (int)$u['id'] ?>" name="can_use_security_audit" value="1" <?= !empty($uPerms['security_audit']) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="audit_<?= (int)$u['id'] ?>">Security Audit</label>
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-primary">Speichern</button>
+                        </form>
+                        <?php else: ?>
+                            <span class="badge bg-info text-dark me-1">Passwort-Generator</span>
+                            <span class="badge bg-info text-dark me-1">Tresor</span>
+                            <span class="badge bg-info text-dark me-1">Crypt Share</span>
+                            <span class="badge bg-info text-dark me-1">Sichere Notizen</span>
+                            <span class="badge bg-info text-dark me-1">2FA Authenticator</span>
+                            <span class="badge bg-info text-dark">Security Audit</span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <?php if ($u['role'] !== 'admin'): ?>
+                        <form method="post" action="admin.php" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                            <input type="hidden" name="promote_id" value="<?= $u['id'] ?>">
+                            <button type="submit" class="btn btn-sm btn-success">Promote to Admin</button>
+                        </form>
+                        <?php else: ?>
+                            <span class="badge bg-secondary">Admin</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 
     <?php if ($totalPages > 1): ?>
     <nav aria-label="Page navigation">
