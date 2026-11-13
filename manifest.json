@@ -1,0 +1,59 @@
+{
+  "id": "passwort-pwa",
+  "name": "Passwort & Vault Manager",
+  "short_name": "Passwort",
+  "description": "Sicherer Passwort- und Vault-Manager für Passwörter, Notizen und 2FA",
+  "start_url": "index.php",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "window-controls-overlay"],
+  "orientation": "any",
+  "background_color": "#212529",
+  "theme_color": "#212529",
+  "lang": "de",
+  "categories": ["utilities", "security", "productivity"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tresor / Vault",
+      "short_name": "Vault",
+      "url": "vault.php",
+      "description": "Verschlüsselter Passwort-Tresor",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Passwort-Generator",
+      "short_name": "Generator",
+      "url": "password_generator.php",
+      "description": "Sichere Zufallspasswörter generieren",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Sichere Notizen",
+      "short_name": "Notizen",
+      "url": "secure_notes.php",
+      "description": "Ende-zu-Ende verschlüsselte Notizen",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "2FA Authenticator",
+      "short_name": "2FA",
+      "url": "totp_authenticator.php",
+      "description": "Zwei-Faktor-Authentifizierung (TOTP)",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    }
+  ]
+}
