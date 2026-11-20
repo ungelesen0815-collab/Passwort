@@ -50,6 +50,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             clear_login_attempts($pdo, $user_identifier);
             clear_login_attempts($pdo, $username_identifier);
             session_regenerate_id(true);
+            if (function_exists('rotate_csrf_token')) {
+                rotate_csrf_token();
+            } else {
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            }
 
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];

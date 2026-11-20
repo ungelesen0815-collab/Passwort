@@ -53,6 +53,11 @@ function handle_authenticated_session(array $user, ?callable $redirectHandler = 
     }
 
     session_regenerate_id(true);
+    if (function_exists('rotate_csrf_token')) {
+        rotate_csrf_token();
+    } else {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
 
     if (!empty($user['mfa_enabled'])) {
         $_SESSION['pending_user_id'] = $user['id'];
@@ -158,7 +163,15 @@ require_once 'header.php';
                         <button type="submit" class="btn btn-primary w-100">Login</button>
                     </form>
                     <div class="mt-3 text-center">
-                        <a href="register.php">Don't have an account? Register</a>
+                        <?php
+                        $allowRegEnv = $_ENV['ALLOW_REGISTRATION'] ?? getenv('ALLOW_REGISTRATION');
+                        $allowReg = ($allowRegEnv === null || $allowRegEnv === '') ? true : (filter_var($allowRegEnv, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true);
+                        ?>
+                        <?php if ($allowReg): ?>
+                            <a href="register.php">Don't have an account? Register</a>
+                        <?php else: ?>
+                            <span class="text-muted small">Registrierung ist derzeit geschlossen</span>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

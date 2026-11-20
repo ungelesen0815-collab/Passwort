@@ -67,7 +67,7 @@ function save_profile_picture(string $fileTmpPath, string $fileExtension): ?stri
 
     $uploadHtaccess = $uploadDir . '.htaccess';
     if (is_dir($uploadDir) && !file_exists($uploadHtaccess) && is_writable($uploadDir)) {
-        @file_put_contents($uploadHtaccess, "<FilesMatch \"\\.(php|phtml|php3|php4|php5|php7|php8|phar|pl|py|cgi|sh)$\">\n    Require all denied\n</FilesMatch>\n");
+        @file_put_contents($uploadHtaccess, "Options -Indexes\nOptions -ExecCGI\n<FilesMatch \"\\.(php[34578]?|phtml|phar|pl|py|cgi|sh)$\">\n    Require all denied\n</FilesMatch>\n");
     }
 
     $destPath = $uploadDir . $newFileName;
