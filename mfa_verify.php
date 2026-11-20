@@ -47,6 +47,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $decryptedSecret = decrypt_mfa_secret($user['mfa_secret'] ?? '');
 
         if ($decryptedSecret !== '' && $tfa->verifyCode($decryptedSecret, $code)) {
+            if (!empty($user['mfa_secret']) && function_exists('is_mfa_secret_encrypted') && !is_mfa_secret_encrypted($user['mfa_secret'])) {
+                try {
+                    $encryptedSecret = encrypt_mfa_secret($decryptedSecret);
+                    if (is_mfa_secret_encrypted($encryptedSecret)) {
+                        $updateMfaStmt = $pdo->prepare('UPDATE users SET mfa_secret = ? WHERE id = ?');
+                        $updateMfaStmt->execute([$encryptedSecret, $user['id']]);
+                    }
+                } catch (\Throwable $e) {
+                    error_log("Failed to migrate plaintext MFA secret for user ID " . ($user['id'] ?? 'unknown') . ": " . $e->getMessage());
+                }
+            }
+
             clear_login_attempts($pdo, $user_identifier);
             clear_login_attempts($pdo, $username_identifier);
             session_regenerate_id(true);
