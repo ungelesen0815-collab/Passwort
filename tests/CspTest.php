@@ -9,10 +9,12 @@ class CspTest extends TestCase
         $sessionContent = file_get_contents(__DIR__ . '/../session.php');
 
         $this->assertStringContainsString(
-            "header(\"Content-Security-Policy: default-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' data:;\");",
+            "header(\"Content-Security-Policy: default-src 'self'; connect-src 'self' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' data:; form-action 'self'; base-uri 'self';\");",
             $sessionContent,
-            'session.php should configure CSP headers allowing inline styles and scripts'
+            'session.php should configure CSP headers allowing inline styles and scripts with form-action and base-uri self'
         );
+        $this->assertStringContainsString("Cross-Origin-Opener-Policy: same-origin", $sessionContent);
+        $this->assertStringContainsString("Cross-Origin-Resource-Policy: same-origin", $sessionContent);
     }
 
     public function testNoInlineEventHandlersInPhpFiles(): void

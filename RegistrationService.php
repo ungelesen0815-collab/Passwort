@@ -1,6 +1,11 @@
 <?php
 
 class RegistrationService {
+    public const COMMON_PASSWORDS = [
+        'password', 'passwort', '12345678', '123456789', '1234567890',
+        'qwertyui', 'asdfghjk', '11111111', 'admin1234', 'welcome123'
+    ];
+
     private \PDO $pdo;
 
     public function __construct(\PDO $pdo) {
@@ -23,9 +28,14 @@ class RegistrationService {
             return ['success' => false, 'error' => 'Password must be between 8 and 72 characters.'];
         }
 
+        if (in_array(strtolower($password), self::COMMON_PASSWORDS, true)) {
+            return ['success' => false, 'error' => 'This password is too common and easily guessed. Please choose a stronger password.'];
+        }
+
         $role = 'user';
 
-        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $algo = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
+        $hashedPassword = password_hash($password, $algo);
 
         try {
             $stmt = $this->pdo->prepare('INSERT INTO users (username, password, role) VALUES (?, ?, ?)');

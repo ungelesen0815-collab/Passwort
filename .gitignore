@@ -6,5 +6,6 @@ node_modules/
 *.png
 *.webm
 .phpunit.cache/
-uploads/
+uploads/*
+!uploads/.htaccess
 cache/

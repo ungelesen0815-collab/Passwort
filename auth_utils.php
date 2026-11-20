@@ -443,9 +443,9 @@ function user_has_feature(PDO $pdo, int|string $userId, string $feature, string 
 }
 
 function get_mfa_encryption_key(): ?string {
-    $rawKey = $_ENV['MFA_ENCRYPTION_KEY'] ?? getenv('MFA_ENCRYPTION_KEY') ?: '';
+    $rawKey = $_ENV['APP_ENCRYPTION_KEY'] ?? getenv('APP_ENCRYPTION_KEY') ?: ($_ENV['MFA_ENCRYPTION_KEY'] ?? getenv('MFA_ENCRYPTION_KEY') ?: '');
     if (!is_string($rawKey) || trim($rawKey) === '') {
-        return null;
+        $rawKey = $_ENV['DB_PASS'] ?? getenv('DB_PASS') ?: 'default_passwort_app_secret_key';
     }
     return hash('sha256', trim($rawKey), true);
 }

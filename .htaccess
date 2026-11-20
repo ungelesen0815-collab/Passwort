@@ -2,7 +2,21 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Disable directory browsing
+Options -Indexes
+
+# Deny access to hidden dotfiles
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
 RewriteRule (^\.|/\.) - [F]
+
+# Block direct access to internal PHP files and service modules
+<FilesMatch "^(db|session|csrf|auth_utils|PasswordGenerator|RegistrationService|SpeiseplanService|migrate|create_admin|header|footer|navbar)\.php$">
+    Require all denied
+</FilesMatch>
+
+# Block sensitive configuration, database schemas, and lockfiles
+<FilesMatch "^(composer\.json|composer\.lock|package\.json|package-lock\.json|phpunit\.xml|schema\.sql|\.env.*)$">
+    Require all denied
+</FilesMatch>

@@ -1,0 +1,7 @@
+# Disable directory listing and script execution in uploads directory
+Options -Indexes
+Options -ExecCGI
+
+<FilesMatch "\.ph(p[34578]?|t|tml|ar|cgi|sh|pl|py)$">
+    Require all denied
+</FilesMatch>

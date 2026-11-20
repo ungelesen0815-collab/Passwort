@@ -28,5 +28,15 @@ if (ini_get("session.use_cookies")) {
     ]);
 }
 
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+session_regenerate_id(true);
+if (function_exists('rotate_csrf_token')) {
+    rotate_csrf_token();
+} else {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 header('Location: login.php');
 exit;

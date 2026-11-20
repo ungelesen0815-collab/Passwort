@@ -7,8 +7,22 @@ require_once 'RegistrationService.php';
 
 $error = '';
 
+$allowRegistrationEnv = $_ENV['ALLOW_REGISTRATION'] ?? getenv('ALLOW_REGISTRATION');
+$allowRegistration = ($allowRegistrationEnv === null || $allowRegistrationEnv === '')
+    ? true
+    : (filter_var($allowRegistrationEnv, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true);
+
+$configuredInviteCode = trim((string)($_ENV['REGISTRATION_INVITE_CODE'] ?? getenv('REGISTRATION_INVITE_CODE') ?: ''));
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $error = validate_csrf_token($_POST['csrf_token'] ?? null) ?? '';
+
+    if (!$error && !$allowRegistration) {
+        $submittedInviteCode = trim((string)($_POST['invite_code'] ?? ''));
+        if ($configuredInviteCode === '' || !hash_equals($configuredInviteCode, $submittedInviteCode)) {
+            $error = 'Die öffentliche Registrierung ist derzeit deaktiviert.';
+        }
+    }
 
     if (!$error) {
         $ip_address = 'reg:' . get_client_ip();
@@ -60,21 +74,37 @@ require_once 'header.php';
                     <?php if ($error): ?>
                         <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
                     <?php endif; ?>
-                    <form method="post" action="register.php">
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
-                        <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="username" name="username" required>
+                    <?php if (!$allowRegistration && $configuredInviteCode === ''): ?>
+                        <div class="alert alert-warning text-center">
+                            <strong>Registrierung deaktiviert</strong><br>
+                            Die Registrierung neuer Konten ist derzeit deaktiviert. Bitte wenden Sie sich an den Administrator.
                         </div>
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
+                        <div class="mt-3 text-center">
+                            <a href="login.php" class="btn btn-outline-secondary w-100">Zurück zum Login</a>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">Register</button>
-                    </form>
-                    <div class="mt-3 text-center">
-                        <a href="login.php">Already have an account? Login</a>
-                    </div>
+                    <?php else: ?>
+                        <form method="post" action="register.php">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+                            <?php if (!$allowRegistration && $configuredInviteCode !== ''): ?>
+                            <div class="mb-3">
+                                <label for="invite_code" class="form-label">Einladungscode</label>
+                                <input type="text" class="form-control" id="invite_code" name="invite_code" placeholder="Einladungscode eingeben" required>
+                            </div>
+                            <?php endif; ?>
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">Register</button>
+                        </form>
+                        <div class="mt-3 text-center">
+                            <a href="login.php">Already have an account? Login</a>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
