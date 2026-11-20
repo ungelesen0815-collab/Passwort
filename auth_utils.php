@@ -496,3 +496,42 @@ function decrypt_mfa_secret(?string $storedSecret): string {
 
     return $plaintext;
 }
+
+function get_preferred_password_algo(): string|int {
+    return defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
+}
+
+function is_mfa_secret_encrypted(?string $storedSecret): bool {
+    return is_string($storedSecret) && str_starts_with($storedSecret, 'enc:v1:');
+}
+
+function migrate_plaintext_mfa_secrets(PDO $pdo): int {
+    $stmt = $pdo->query("SELECT id, mfa_secret FROM users WHERE mfa_secret IS NOT NULL AND mfa_secret != ''");
+    if (!$stmt) {
+        return 0;
+    }
+
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (empty($rows)) {
+        return 0;
+    }
+
+    $updateStmt = $pdo->prepare('UPDATE users SET mfa_secret = ? WHERE id = ?');
+    $migrated = 0;
+
+    foreach ($rows as $row) {
+        $secret = $row['mfa_secret'] ?? '';
+        if (!is_string($secret) || $secret === '' || is_mfa_secret_encrypted($secret)) {
+            continue;
+        }
+
+        $encrypted = encrypt_mfa_secret($secret);
+        if (is_mfa_secret_encrypted($encrypted)) {
+            $updateStmt->execute([$encrypted, $row['id']]);
+            $migrated++;
+        }
+    }
+
+    return $migrated;
+}
+

@@ -41,6 +41,22 @@ function authenticate_user(PDO $pdo, string $username, string $password): ?array
     $valid_password = password_verify($password, $hash_to_verify);
 
     if ($user && $valid_password) {
+        $preferredAlgo = function_exists('get_preferred_password_algo')
+            ? get_preferred_password_algo()
+            : (defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT);
+
+        if (password_needs_rehash($user['password'], $preferredAlgo)) {
+            $newHash = password_hash($password, $preferredAlgo);
+            if ($newHash !== false) {
+                try {
+                    $rehashStmt = $pdo->prepare('UPDATE users SET password = ? WHERE id = ?');
+                    $rehashStmt->execute([$newHash, $user['id']]);
+                    $user['password'] = $newHash;
+                } catch (\Throwable $e) {
+                    error_log("Password rehash update failed for user ID " . ($user['id'] ?? 'unknown') . ": " . $e->getMessage());
+                }
+            }
+        }
         return $user;
     }
 

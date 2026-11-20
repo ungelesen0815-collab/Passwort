@@ -4,6 +4,7 @@ if (php_sapi_name() !== 'cli') {
 }
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth_utils.php';
 
 try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS users (
@@ -232,6 +233,13 @@ try {
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
+    $hasExplicitEncryptionKey = trim((string)($_ENV['APP_ENCRYPTION_KEY'] ?? getenv('APP_ENCRYPTION_KEY') ?: ($_ENV['MFA_ENCRYPTION_KEY'] ?? getenv('MFA_ENCRYPTION_KEY') ?: ''))) !== '';
+    if (!$hasExplicitEncryptionKey) {
+        echo "WARNING: APP_ENCRYPTION_KEY is not set in .env. Please configure a strong APP_ENCRYPTION_KEY before migrating MFA secrets.\n";
+    }
+
+    $migratedMfaCount = migrate_plaintext_mfa_secrets($pdo);
+    echo "MFA encryption migration: $migratedMfaCount plaintext secret(s) encrypted with AES-256-GCM.\n";
     echo "Migration completed successfully: 'users', 'login_attempts', 'vaults', 'vault_items', and 'crypt_shares' tables are ready.\n";
 } catch (\PDOException $e) {
     echo "Migration failed: " . $e->getMessage() . "\n";
